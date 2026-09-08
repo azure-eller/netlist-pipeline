@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 export PYTHONPATH := src
 
-.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge build
+.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge dataset train-surrogate build
 
 up:            ## start Postgres + MinIO
 	docker compose up -d postgres minio
@@ -27,6 +27,12 @@ golden:         ## run a judge against the golden set (JUDGE_URL optional)
 
 train-judge:    ## distill the rule judge into models/judge-v2.joblib and upload it
 	$(PY) scripts/train_judge.py
+
+dataset:        ## make dataset SHARDS=4 N=1250 : solve synthetic cross-sections through the queue
+	$(PY) scripts/dataset.py create --shards $(or $(SHARDS),4) --per-shard $(or $(N),1250) --seed $(or $(SEED),0)
+
+train-surrogate: ## make train-surrogate DATASET=<id> VERSION=v5
+	$(PY) scripts/train_surrogate.py --dataset $(DATASET) --version $(or $(VERSION),v5)
 
 lint:
 	.venv/bin/ruff format --check src tests scripts && .venv/bin/ruff check src tests scripts

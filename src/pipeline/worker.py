@@ -30,8 +30,14 @@ def run_one(job_id: int) -> None:
             row = cur.fetchone()
         if row is None:
             raise SystemExit(f"job {job_id} not found")
+        job = jobs.Job(row[0], row[1], row[2], row[3])
         try:
-            stages.run(conn, jobs.Job(row[0], row[1], row[2], row[3]))
+            if job.kind.startswith("data:"):
+                from pipeline import data
+
+                data.run_job(conn, job)
+            else:
+                stages.run(conn, job)
         except Exception:  # noqa: BLE001
             # The stage and run rows already record the failure; a deterministic stage error
             # is not retried. Exit 0 so the parent marks the job done. Crashes and timeouts
