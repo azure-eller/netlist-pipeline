@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     kicad_cli: str = "kicad-cli"
     freerouting_bin: str = "freerouting"  # launcher from the linux-x64 bundle, or "java -jar x.jar"
-    freerouting_passes: int = 20
+    freerouting_passes: int = 10
     freerouting_timeout_seconds: int = 600
 
     judge_url: str | None = None

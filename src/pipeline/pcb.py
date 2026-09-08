@@ -241,3 +241,11 @@ def route(path_in: Path, path_out: Path) -> dict[str, Any]:
         "unrouted": unrouted_count(path_out),
         "passes": settings.freerouting_passes,
     }
+
+
+if __name__ == "__main__":  # python -m pipeline.pcb route <placed> <routed>: one seed, one process
+    import json
+    import sys
+
+    if sys.argv[1:2] == ["route"]:
+        print(json.dumps(route(Path(sys.argv[2]), Path(sys.argv[3]))))
