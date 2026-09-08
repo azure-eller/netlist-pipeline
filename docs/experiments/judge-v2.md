@@ -34,3 +34,31 @@ MinIO with runs 27 and 34 present). It writes `models/judge-v2.joblib` (git-igno
 uploads it to S3 key `models/judge/v2.joblib`. The artifact dict carries `name`, `version`,
 `model`, `feature_names`, `trained_at`, `corpus_size`, `r2`, `mae`, and the caveat as `note`.
 Artifact sha256 of this training: `56b460fcd3bafb624ef94573dae4febd8fa964e99467c0e16e0d273d212c9f14`.
+
+## Gate results and iterations (2026-09-08)
+
+Every line below is in `golden.jsonl`. Tolerance is max(0.5, 10%) of the expected score;
+ordering constraints (broken board scores below its parent) held for every version.
+
+| version | capacitor moves in corpus | R² held out | pic_human | pic_generated | rpi_generated | pic_cap_far (exp -16.12) | rpi_thin | gate |
+|---|---|---|---|---|---|---|---|---|
+| rules 0.1.0 | reference | | -6.48 | -1.20 | -3.43 | -16.12 | -4.99 | approved |
+| learned-gbr v2 | 0-40 mm | 0.990 | -6.58 | -1.32 | -3.03 | -10.31 | -4.95 | refused |
+| learned-gbr v3 | 0-100 mm | 0.987 | -6.67 | -1.32 | -3.00 | -14.35 | -4.77 | refused |
+| learned-gbr v4 | 0-150 mm | 0.985 | -6.69 | -1.27 | -3.01 | -14.10 | -4.90 | refused |
+
+Reading: all three learned versions track the real boards within tolerance and fail the same
+deliberately broken case, a capacitor 93 mm from its IC pin, whose penalty saturates in the rule
+judge (relative excess clipped at 5). A regressor trained on mostly unsaturated examples
+underestimates the plateau even when the corpus reaches it. Three iterations are enough to say
+that widening the move range does not fix it; the next lever is the feature set (a clipped
+distance feature) or a different loss, and that is a research decision, recorded here for
+whoever makes it. No learned judge is approved.
+
+The gate in the worker was exercised both ways on the same day:
+
+- run 58, `JUDGE_URL` at v4: judge stage failed with `judge learned-gbr v4 is not in
+  golden/approved.json; run scripts/golden.py --judge-url ... --approve`.
+- run 59, `JUDGE_URL` at the reference judge served by `judge_api.py` with
+  `JUDGE_VERSION=rules`: run passed, judge stage recorded `rules 0.1.0` via the remote path
+  with the same score as in-process (-6.48).

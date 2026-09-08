@@ -132,6 +132,22 @@ A judge version reaches the worker only after it agrees with the golden set.
   version. The stage records `{name, version}` in its details. The in-process rule judge is the
   reference and is not gated.
 
+## Placers
+
+`POST /designs?placer=search|claude` (default `search`) chooses how generate mode places parts.
+
+- `search`: seeded simulated annealing over the proxy cost (wire length, decoupling distance,
+  1.0 mm courtyard clearance, bounds). Deterministic per seed.
+- `claude`: the search layout for each seed is handed to Claude (Agent SDK, model
+  `claude-fable-5-1`, no tools, one turn, structured output) as a compact board description;
+  the proposal is validated in code (movable refs only, rotations snapped, positions clamped
+  inside the outline, fixed and mechanical parts restored) and written as the candidate. The
+  search board is kept beside it as `candidates/<seed>/placed-search.kicad_pcb`. Router, judge
+  and verification are identical. Every proposal, its rationale, tokens and costs are recorded
+  under `docs/experiments/claude-placer/` when `EXPERIMENTS_DIR` is set. This placer is an
+  experiment with a row in the eval table, never a silent fallback: if the SDK call fails, the
+  stage fails.
+
 ## Verification (independent of the judge)
 
 Passed iff all of: DRC with schematic parity reports zero errors, excluding silkscreen rules

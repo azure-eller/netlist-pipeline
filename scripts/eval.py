@@ -83,6 +83,7 @@ def main() -> None:
     ap.add_argument("seeds", nargs="?", type=int, default=3)
     ap.add_argument("--placer", choices=("search", "claude"), default="search")
     ap.add_argument("--note", default="")
+    ap.add_argument("--out", default=str(ROOT / "docs" / "EVAL.md"))
     a = ap.parse_args()
     client = httpx.Client(base_url=a.api, timeout=120)
     lines = [
@@ -115,7 +116,7 @@ def main() -> None:
             )
         )
         print(lines[-1])
-    out = ROOT / "docs" / "EVAL.md"
+    out = Path(a.out)
     out.write_text("\n".join(lines) + "\n")
     print("wrote", out)
 

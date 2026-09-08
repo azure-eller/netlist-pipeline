@@ -116,8 +116,16 @@ POST $JUDGE_URL/v1/score   Authorization: Bearer <token>
 ```
 
 `pipeline/judge.py` is the reference. The worker calls it in-process unless `JUDGE_URL` is
-set; `pipeline/judge_api.py` serves the same function behind the contract. Score is 0 for a
-board with no violations and decreases with each violation's weighted excess.
+set; `pipeline/judge_api.py` serves the same function behind the contract, or a versioned
+model artifact loaded from S3 (`JUDGE_VERSION=v2 make judge`; `GET /v1/info` reports name,
+version, artifact hash). Score is 0 for a board with no violations and decreases with each
+violation's weighted excess.
+
+A judge version reaches the worker only through the golden set: `make golden` runs any judge
+against five boards with expected scorecards, two of them deliberately broken, and
+`scripts/golden.py --approve` records a passing version. The worker refuses anything else.
+Three distilled learned judges were trained and all three were refused, correctly, on the
+broken-capacitor case; the record is in [docs/experiments](docs/experiments/README.md).
 
 ## Deploy
 
