@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: netlist-pipeline object store and least-privilege user
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "netlist-pipeline-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  PipelineUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: netlist-pipeline
+      Policies:
+        - PolicyName: bucket-rw
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:ListBucket]
+                Resource: !GetAtt Bucket.Arn
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource: !Sub "${Bucket.Arn}/*"
+  PipelineKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref PipelineUser
+Outputs:
+  BucketName:
+    Value: !Ref Bucket
+  AccessKeyId:
+    Value: !Ref PipelineKey
+  SecretAccessKey:
+    Value: !GetAtt PipelineKey.SecretAccessKey

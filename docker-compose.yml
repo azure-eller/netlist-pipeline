@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: netlist
+      POSTGRES_DB: netlist
+    ports: ["5433:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["minio:/data"]
+
+  api:
+    build: .
+    command: uvicorn pipeline.api:app --host 0.0.0.0 --port 8000
+    environment: &env
+      DATABASE_URL: postgresql://postgres:netlist@postgres:5432/netlist
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: netlist
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio12345
+    ports: ["8000:8000"]
+    depends_on: [postgres, minio]
+
+  worker:
+    build: .
+    command: python -m pipeline.worker
+    environment: *env
+    depends_on: [postgres, minio]
+
+volumes:
+  pgdata:
+  minio:

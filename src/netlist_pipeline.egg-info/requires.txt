@@ -1,0 +1,16 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+psycopg[binary]>=3.2
+boto3>=1.35
+pydantic-settings>=2.5
+structlog>=24
+python-multipart>=0.0.9
+httpx>=0.27
+sentry-sdk>=2
+
+[dev]
+ruff
+mypy
+pytest
+awscli
+boto3-stubs[s3]
