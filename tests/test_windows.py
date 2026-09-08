@@ -101,10 +101,9 @@ def conn(monkeypatch: pytest.MonkeyPatch) -> Iterator[psycopg.Connection]:
 
 
 def test_windows_job_inserts_once(conn: psycopg.Connection) -> None:
-    raw = PCB.read_bytes()
+    raw = PCB.read_bytes() + b"\n"  # a distinct sha256: the fixture itself may be registered
     key = storage.put(f"boards/{storage.sha256(raw)}.kicad_pcb", raw)
     with conn.cursor() as cur:
-        cur.execute("delete from boards where sha256 = %s", (storage.sha256(raw),))
         cur.execute(
             "insert into boards (source, path, sha256, object_key, family, n_layers, n_nets, "
             "stackup) values ('test_windows', %s, %s, %s, 'pic', 2, 33, '{}') returning id",
