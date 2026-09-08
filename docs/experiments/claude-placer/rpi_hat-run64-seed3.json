@@ -1,0 +1,87 @@
+{
+ "model": "claude-fable-5-1",
+ "effort": "high",
+ "seed": 3,
+ "prompt_chars": 2307,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 4461,
+  "cache_read_input_tokens": 41409,
+  "output_tokens": 2737,
+  "output_tokens_details": {
+   "thinking_tokens": 2295
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 4461,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 2737,
+    "cache_read_input_tokens": 41409,
+    "cache_creation_input_tokens": 4461,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 4461
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard"
+ },
+ "num_turns": 2,
+ "total_cost_usd": 0.23644225,
+ "seconds": 37.71798063800088,
+ "output": {
+  "positions": [
+   {
+    "ref": "U1",
+    "x": 143.48,
+    "y": 60,
+    "rot": 180
+   },
+   {
+    "ref": "C1",
+    "x": 141.5,
+    "y": 64.5,
+    "rot": 0
+   },
+   {
+    "ref": "R1",
+    "x": 137,
+    "y": 58,
+    "rot": 0
+   },
+   {
+    "ref": "R2",
+    "x": 140.5,
+    "y": 55.5,
+    "rot": 0
+   },
+   {
+    "ref": "JP1",
+    "x": 137.02,
+    "y": 61,
+    "rot": 180
+   }
+  ],
+  "rationale": "The annealed cluster is already sound: U1 sits directly under J1 pins 27/28 (SDA/SCL at x\u2248141), pull-ups R1/R2 sit between the header and U1's SDA/SCL side, JP1 is next to WP (pin 7), and C1.1 is ~2.6 mm from VCC pin 8. I kept the relative arrangement and shifted the whole cluster 3 mm down (+y) so R2's courtyard keeps \u22651 mm from J1's courtyard regardless of which side of its origin the second pin row falls; all internal spacings remain \u22651 mm, decoupling stays <3 mm, and every part is well inside the outline."
+ },
+ "moved": [
+  "C1",
+  "JP1",
+  "R1",
+  "R2",
+  "U1"
+ ],
+ "rejected": [],
+ "search_cost": 665.617686779378,
+ "refined_cost": 674.617686779378
+}

@@ -1,0 +1,87 @@
+{
+ "model": "claude-fable-5-1",
+ "effort": "high",
+ "seed": 2,
+ "prompt_chars": 2311,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 4461,
+  "cache_read_input_tokens": 41409,
+  "output_tokens": 6546,
+  "output_tokens_details": {
+   "thinking_tokens": 6067
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 4461,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 6546,
+    "cache_read_input_tokens": 41409,
+    "cache_creation_input_tokens": 4461,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 4461
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard"
+ },
+ "num_turns": 2,
+ "total_cost_usd": 0.42689225,
+ "seconds": 83.78781701800472,
+ "output": {
+  "positions": [
+   {
+    "ref": "U1",
+    "x": 140.5,
+    "y": 56,
+    "rot": 90
+   },
+   {
+    "ref": "C1",
+    "x": 136,
+    "y": 54,
+    "rot": 90
+   },
+   {
+    "ref": "R2",
+    "x": 136,
+    "y": 58,
+    "rot": 90
+   },
+   {
+    "ref": "R1",
+    "x": 145,
+    "y": 55,
+    "rot": 90
+   },
+   {
+    "ref": "JP1",
+    "x": 145.5,
+    "y": 59.5,
+    "rot": 270
+   }
+  ],
+  "rationale": "Pi HAT ID EEPROM. U1 rotated 90 and centred at x=140.5 so its pin 5-8 side (SDA/SCL/WP/VCC) faces the header directly under J1 pins 27/28 (x\u2248141.4), giving ~4 mm straight I2C runs; courtyard stays 1.75 mm below J1. C1 sits left of U1 beside pin 8 (VCC) at ~2.7 mm, R2 (SCL pull-up) below it on the 3V3 side nearest header pin 17, R1 (SDA pull-up) and JP1 (WP) in a column on the right so 3V3 for R1.1/JP1.2 shares one short stub. All courtyards \u22651 mm apart and inside the outline; fixed parts untouched."
+ },
+ "moved": [
+  "C1",
+  "JP1",
+  "R1",
+  "R2",
+  "U1"
+ ],
+ "rejected": [],
+ "search_cost": 675.1278324402722,
+ "refined_cost": 678.6886066999512
+}

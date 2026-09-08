@@ -1,0 +1,87 @@
+{
+ "model": "claude-fable-5-1",
+ "effort": "high",
+ "seed": 1,
+ "prompt_chars": 2309,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 4573,
+  "cache_read_input_tokens": 41297,
+  "output_tokens": 3121,
+  "output_tokens_details": {
+   "thinking_tokens": 2615
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 4573,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 3121,
+    "cache_read_input_tokens": 41297,
+    "cache_creation_input_tokens": 4573,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 4573
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard"
+ },
+ "num_turns": 2,
+ "total_cost_usd": 0.25785425,
+ "seconds": 42.203761368000414,
+ "output": {
+  "positions": [
+   {
+    "ref": "U1",
+    "x": 143,
+    "y": 57.5,
+    "rot": 180
+   },
+   {
+    "ref": "R1",
+    "x": 135.5,
+    "y": 55.5,
+    "rot": 0
+   },
+   {
+    "ref": "R2",
+    "x": 135.5,
+    "y": 58,
+    "rot": 0
+   },
+   {
+    "ref": "JP1",
+    "x": 135.5,
+    "y": 61.5,
+    "rot": 270
+   },
+   {
+    "ref": "C1",
+    "x": 141.5,
+    "y": 62.5,
+    "rot": 0
+   }
+  ],
+  "rationale": "R1/R2 were at y=52.5, inside J1's courtyard (J1 rows at y\u224848.8/51.3, courtyard to ~53.1) \u2014 moved them to a column at x=135.5, y=55.5/58.0 just left of U1's SDA/SCL pins (pins 5/6 at rot 180 sit on the left side). U1 slid to (143,57.5) so its I2C pins sit directly under J1 pins 27/28 (x\u2248141.4), keeping SDA/SCL short. JP1 stacked below the resistors next to U1.7 (WP). C1 placed directly under U1's VCC pin (pin 8 at ~140.3,59.4): C1.1 \u22483 mm away, GND pin routes straight up. All courtyards \u22651 mm apart, \u22651 mm below J1, fully inside outline; fixed parts untouched."
+ },
+ "moved": [
+  "C1",
+  "JP1",
+  "R1",
+  "R2",
+  "U1"
+ ],
+ "rejected": [],
+ "search_cost": 665.565587153711,
+ "refined_cost": 680.306865910686
+}

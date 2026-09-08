@@ -36,11 +36,36 @@ Same judge, same verification, same seeds as the search rows, so the rows are co
 
 ## Results
 
-_To be filled by the eval run._
+Run 64, 2026-09-08, model `claude-fable-5-1`, effort high, short system prompt, three seeds.
+Same router (Freerouting, 20 passes), same rule judge, same verification as the search rows in
+`../EVAL.md`. Search's own result on this board: all seeds route, verified, score -3.43.
 
 | fixture | seed | search cost | refined cost | moved | tokens in/out | s | verified | score |
 |---|---|---|---|---|---|---|---|---|
+| rpi_hat (6 parts) | 1 | 666 | 680 | 5 | 45872/3121 | 42 | yes | -3.43 (= search) |
+| rpi_hat (6 parts) | 2 | 675 | 679 | 5 | 45872/6546 | 84 | yes | -3.43 (= search) |
+| rpi_hat (6 parts) | 3 | 666 | 675 | 5 | 45872/2737 | 38 | yes | -3.43 (= search) |
 
-### Per-seed observations
+### Per-seed observations (rpi_hat)
+
+- Every seed moved all five movable parts and every seed routed fully (0 unrouted) and
+  verified clean (0 DRC errors, netlist match, in bounds).
+- The judge score is identical to search's on all three seeds: the only violations on this
+  board are the two 0.2 mm power traces against the 1 A rail requirement, which placement
+  cannot change. The rule judge has no term that a better placement of six parts would move.
+- The proxy cost got 1 to 2 percent worse on every seed. Claude spent that on clearance: each
+  rationale talks about keeping the cluster clear of the header's courtyard, and the search
+  layout was already at the 1.0 mm clearance the placer enforces.
+- The rationales read like an engineer: seed 2 rotated the EEPROM so its SDA/SCL/WP/VCC side
+  faces the header pins 27/28 it connects to, put the SCL pull-up on the 3V3 side nearest
+  header pin 17, and kept the decoupling cap 2.7 mm from the VCC pin. Seed 3 judged the search
+  layout "already sound" and shifted the cluster 3 mm for clearance. That is real circuit
+  reading; it produced no measurable difference here.
+- Cost per seed: 38 to 84 s and 2.7k to 6.5k output tokens against 40 ms for search.
+
+### pic_programmer (63 parts)
+
+Effort high was abandoned: one seed ran past 23 minutes without returning (killed; run 61).
+The medium-effort run with a 20-minute cap per seed is run 65; rows below when it lands.
 
 ### Verdict
