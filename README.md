@@ -138,8 +138,12 @@ aws cloudformation deploy --region us-west-2 --stack-name netlist-pipeline \
   --template-file infra/aws.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
 
-Live API: https://netlist-api-ivqr.onrender.com/healthz (free tier sleeps when idle; first
-request after sleep takes about thirty seconds).
+Live: https://netlist-api-ivqr.onrender.com/healthz (the web service sleeps when idle; the
+first request after sleep takes about thirty seconds). The worker needs the 2 GB instance:
+measured peak memory on the 63-part board is 434 MB for `kicad-cli pcb drc` alone, 316 MB for
+the netlist export, plus the worker and its child interpreter, and the 512 MB starter instance
+was out-of-memory killed on the first stage. Each job runs in a child interpreter; the KiCad
+bindings are imported only by the stages that need them.
 
 ## Eval
 
