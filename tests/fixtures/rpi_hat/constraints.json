@@ -1,0 +1,10 @@
+{
+  "footprints": {
+    "C1": "Capacitor_SMD:C_0603_1608Metric",
+    "R1": "Resistor_SMD:R_0603_1608Metric",
+    "R2": "Resistor_SMD:R_0603_1608Metric",
+    "JP1": "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm",
+    "U1": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
+  },
+  "rail_current_a": {"+3V3": 0.5, "+5V": 1.0}
+}

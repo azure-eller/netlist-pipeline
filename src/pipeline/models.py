@@ -77,6 +77,9 @@ class Constraints:
         default_factory=lambda: {"high_speed": 50.0, "diff": 100.0}
     )
     fixed: dict[str, tuple[float, float, float]] = field(default_factory=dict)  # ref -> x, y, rot
+    footprints: dict[str, str] = field(
+        default_factory=dict
+    )  # ref -> "Lib:Name" when the schematic has none
     outline_mm: tuple[float, float] | None = None  # (w, h) when generating without a board
     stackup: Stackup = field(default_factory=Stackup)
     decoupling_max_mm: float = 10.0

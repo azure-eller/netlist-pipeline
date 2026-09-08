@@ -114,6 +114,11 @@ def _user(
         raise ValueError(f"constraints.json fixed: unknown refs {bad_refs}")
     if not all(len(v) == 3 and all(_num(x) for x in v) for v in fixed.values()):
         raise ValueError("constraints.json fixed: values must be [x, y, rot]")
+    footprints = user.get("footprints", {})
+    if bad_refs := sorted(set(footprints) - refs):
+        raise ValueError(f"constraints.json footprints: unknown refs {bad_refs}")
+    if not all(isinstance(v, str) and ":" in v for v in footprints.values()):
+        raise ValueError('constraints.json footprints: values must be "Lib:Name"')
     outline = user.get("outline_mm")
     if outline is not None and not (len(outline) == 2 and all(_num(x) and x > 0 for x in outline)):
         raise ValueError("constraints.json outline_mm: must be two positive numbers")
@@ -134,6 +139,8 @@ def _user(
     if fixed:
         c.fixed = {r: (float(v[0]), float(v[1]), float(v[2])) for r, v in fixed.items()}
         src["fixed"] = "user"
+    if footprints:
+        c.footprints, src["footprints"] = dict(footprints), "user"
     if outline is not None:
         c.outline_mm, src["outline_mm"] = (float(outline[0]), float(outline[1])), "user"
     if stackup := user.get("stackup"):

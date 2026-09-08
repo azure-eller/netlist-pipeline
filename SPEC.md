@@ -30,7 +30,7 @@ files cannot (see Constraints).
 |---|---|---|---|---|
 | 1 | extract_netlist | upload | `runs/<id>/netlist.json`; `components`, `nets`, `net_nodes` rows; ERC counts in stage details (recorded, not a gate) | `kicad-cli sch erc`, `kicad-cli sch export netlist --format kicadsexpr` |
 | 2 | constraints | `.kicad_pro`, net names, `constraints.json` | `constraints` row (body + per-field source) | pipeline |
-| 3 | build_board | upload, netlist, constraints | `runs/<id>/candidates/<seed>/unplaced.kicad_pcb` (generate) or the supplied board as candidate seed 0 (judge) | pcbnew |
+| 3 | build_board | upload, netlist, constraints | `runs/<id>/unplaced.kicad_pcb` (generate) or the supplied board as candidate seed 0 at `runs/<id>/candidates/0/board.kicad_pcb` (judge) | pcbnew |
 | 4 | place | unplaced board, constraints | `.../placed.kicad_pcb`, `candidates.proxy_cost` | pipeline (simulated annealing) |
 | 5 | route | placed board | `.../routed.kicad_pcb`, unrouted count | Freerouting via Specctra DSN/SES |
 | 6 | judge | candidate board, netlist, constraints | `candidates.score`, `.metrics`, `runs/<id>/report.json`; best candidate `chosen` | `judge.py` or `JUDGE_URL` |
@@ -71,13 +71,15 @@ Derived in order, later sources override earlier, and each field records its sou
   "rail_current_a": {"+3V3": 0.5},
   "impedance_ohm": {"high_speed": 50, "diff": 90},
   "fixed": {"J1": [10.0, 20.0, 0]},
+  "footprints": {"R1": "Resistor_SMD:R_0603_1608Metric"},
   "outline_mm": [60, 40],
   "stackup": {"layers": 2, "board_thickness_mm": 1.6, "copper_um": 35, "dielectric_mm": 1.51, "er": 4.5},
   "decoupling_max_mm": 10
 }
 ```
 
-Validation: every net named exists in the netlist; every ref in `fixed` exists; class names
+Validation: every net named exists in the netlist; every ref in `fixed` and `footprints`
+exists; `footprints` supplies "Lib:Name" for parts whose schematic symbol has none; class names
 are one of `default`, `power`, `high_speed`, `diff`. Invalid input fails the stage.
 
 ## Judge contract
@@ -96,7 +98,7 @@ Authorization: Bearer <JUDGE_TOKEN>
 Score is 0 for a board with no violations and decreases with each violation's weighted
 excess; higher is better. Rules in the reference judge: single-ended and differential
 impedance (IPC-2141 microstrip), diff-pair length mismatch, decoupling capacitor distance to
-the IC power pin it serves, trace current capacity (IPC-2152) against rail current, crosstalk
+the IC power pin it serves, trace current capacity (IPC-2221) against rail current, crosstalk
 proxy (parallel run length over spacing), via count on high-speed nets, unrouted count.
 
 ## Verification (independent of the judge)
