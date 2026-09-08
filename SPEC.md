@@ -103,10 +103,11 @@ proxy (parallel run length over spacing), via count on high-speed nets, unrouted
 
 ## Verification (independent of the judge)
 
-Passed iff all of: DRC with schematic parity reports zero errors; the IPC-D-356 netlist
+Passed iff all of: DRC with schematic parity reports zero errors, excluding silkscreen rules
+(`silk_*`: cosmetic, fabs clip silk over copper; counted separately in the summary); the IPC-D-356 netlist
 exported from the board equals the schematic netlist (net name -> set of `ref.pin`, names
 normalized: leading `/` stripped, case preserved); unrouted count is 0; every footprint's
-courtyard lies inside the outline.
+pads lie inside the outline (courtyards may overhang: mounting holes and edge connectors do).
 
 ## Invariants (tested)
 

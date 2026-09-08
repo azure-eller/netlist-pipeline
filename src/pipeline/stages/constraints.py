@@ -18,7 +18,7 @@ def constraints(ctx: Ctx) -> None:
             "insert into constraints (run_id, source, body) values (%s, %s, %s)",
             (ctx.run_id, json.dumps(sources), body),
         )
-    ctx.provenance("pipeline", "0.1.0", None)
+    ctx.provenance("pipeline", "0.1.0", storage.sha256(json.dumps(nl.to_json()).encode()))
     ctx.output_hash = storage.sha256(body.encode())
     ctx.details = {
         "classes": {k: sum(1 for n in nl.nets if c.net_class(n.name) == k) for k in NET_CLASSES},

@@ -106,3 +106,17 @@ def add_artifact(
             "sha256 = excluded.sha256, bytes = excluded.bytes",
             (ctx.run_id, name, key, storage.sha256(data), len(data)),
         )
+
+
+def chosen_candidate(ctx: Ctx) -> tuple[int, bytes]:
+    """(candidate id, board bytes) of the chosen candidate, or the only one."""
+    with ctx.conn.cursor() as cur:
+        cur.execute(
+            "select id, board_key from candidates where run_id = %s "
+            "order by chosen desc, id limit 1",
+            (ctx.run_id,),
+        )
+        row = cur.fetchone()
+    if row is None:
+        raise RuntimeError("no candidate board for this run")
+    return int(row[0]), storage.get(row[1])

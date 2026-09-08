@@ -124,16 +124,9 @@ def test_verify_catches_a_broken_board(client: TestClient) -> None:
     """A pad moved to another net must fail netlist equivalence (SPEC invariant 5)."""
     d = FIX / "pic_programmer"
     pcb = (d / "pic_programmer.kicad_pcb").read_text()
-    # swap the net of the first two pads that carry different nets
-    import re
-
-    nets = re.findall(r'\(net (\d+) "([^"]+)"\)', pcb)
-    a, b = nets[1], nets[2]
-    broken = (
-        pcb.replace(f'(net {a[0]} "{a[1]}")', "\x00", 1)
-        .replace(f'(net {b[0]} "{b[1]}")', f'(net {a[0]} "{a[1]}")', 1)
-        .replace("\x00", f'(net {b[0]} "{b[1]}")', 1)
-    )
+    # KiCad 10 pads carry (net "name"); move the first VCC pad onto GND
+    assert '(net "VCC")' in pcb and '(net "GND")' in pcb
+    broken = pcb.replace('(net "VCC")', '(net "GND")', 1)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
         for p in sorted(d.rglob("*")):

@@ -22,6 +22,11 @@ WEIGHTS = {
     "overlap": 50.0,
     "oob": 50.0,
 }
+CLEARANCE_MM = 0.5  # courtyard-to-courtyard gap so silkscreen and solder mask never touch
+
+
+def _grow(b: BBox, d: float) -> BBox:
+    return (b[0] - d, b[1] - d, b[2] + d, b[3] + d)
 
 
 def _rot(dx: float, dy: float, deg: float) -> XY:
@@ -51,7 +56,6 @@ class _Model:
     def __init__(self, board: Board, netlist: Netlist, c: Constraints) -> None:
         self.board = board
         self.fixed = c.fixed
-        self.layer = {f.ref: f.layer for f in board.footprints}
         self.local_pads: dict[str, dict[str, XY]] = {}
         self.local_court: dict[str, tuple[XY, ...]] = {}
         for f in board.footprints:
@@ -123,8 +127,11 @@ class _Model:
             ca = geo[a][1]
             total += WEIGHTS["oob"] * (_area(ca) - _area(_clip(ca, outline)))
             for b in refs[i + 1 :]:
-                if self.layer[a] == self.layer[b]:
-                    total += WEIGHTS["overlap"] * _area(_clip(ca, geo[b][1]))
+                # ponytail: sides ignored, so through-hole parts (both sides) are always
+                # respected; two-sided SMD placement would need per-side courtyards
+                total += WEIGHTS["overlap"] * _area(
+                    _clip(_grow(ca, CLEARANCE_MM / 2), _grow(geo[b][1], CLEARANCE_MM / 2))
+                )
         return total
 
 
@@ -150,7 +157,9 @@ def place(
     m = _Model(board, netlist, constraints)
     rng = random.Random(seed)
     pose = m.initial()
-    movable = [r for r in pose if r not in constraints.fixed]
+    netted = {n.ref for net in netlist.nets for n in net.nodes}
+    # parts with no netted pads (mounting holes) are mechanical: never moved
+    movable = [r for r in pose if r not in constraints.fixed and r in netted]
     geo = {r: m.transform(r, p) for r, p in pose.items()}
     cur = m.cost(geo)
     if not movable:

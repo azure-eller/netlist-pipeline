@@ -69,8 +69,10 @@ def build_unplaced(
 
     if template:
         bb = board.GetBoardEdgesBoundingBox()
+        x0, y0 = pcbnew.ToMM(bb.GetX()), pcbnew.ToMM(bb.GetY())
         w, h = pcbnew.ToMM(bb.GetWidth()), pcbnew.ToMM(bb.GetHeight())
     else:
+        x0 = y0 = 0.0
         if constraints.outline_mm:
             w, h = constraints.outline_mm
         else:
@@ -81,12 +83,21 @@ def build_unplaced(
         rect.SetLayer(pcbnew.Edge_Cuts)
         rect.SetWidth(_mm(0.1))
         board.Add(rect)
-        cols = math.ceil(math.sqrt(len(fps)))
-        rows = math.ceil(len(fps) / cols)
-        for i, fp in enumerate(fps.values()):
-            x = (i % cols + 0.5) * w / cols
-            y = (i // cols + 0.5) * h / rows
-            fp.SetPosition(pcbnew.VECTOR2I(_mm(x), _mm(y)))
+
+    # Seed the search: every movable part on a grid inside the outline. Parts the template
+    # already placed that carry no nets (mounting holes) and constraints.fixed stay put.
+    netted = {n.ref for net in netlist.nets for n in net.nodes}
+    movable = [
+        fp
+        for ref, fp in fps.items()
+        if ref not in constraints.fixed and (ref in netted or not template)
+    ]
+    cols = math.ceil(math.sqrt(len(movable))) or 1
+    rows = math.ceil(len(movable) / cols) or 1
+    for i, fp in enumerate(movable):
+        x = x0 + (i % cols + 0.5) * w / cols
+        y = y0 + (i // cols + 0.5) * h / rows
+        fp.SetPosition(pcbnew.VECTOR2I(_mm(x), _mm(y)))
 
     for ref, (x, y, rot) in constraints.fixed.items():
         fps[ref].SetPosition(pcbnew.VECTOR2I(_mm(x), _mm(y)))
@@ -172,6 +183,11 @@ def route(path_in: Path, path_out: Path) -> dict[str, Any]:
         raise RuntimeError(f"Freerouting wrote no SES: {output[-2000:]}")
     if not pcbnew.ImportSpecctraSES(board, str(ses)):
         raise RuntimeError(f"SES import failed for {ses}")
+    # Freerouting necks down below the board minimum in tight spots; the fab rule wins.
+    min_w = board.GetDesignSettings().m_TrackMinWidth
+    for t in _items(board.Tracks()):
+        if t.GetClass() == "PCB_TRACK" and t.GetWidth() < min_w:
+            t.SetWidth(min_w)
     pcbnew.SaveBoard(str(path_out), board)
     return {
         "version": freerouting_version(),
