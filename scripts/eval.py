@@ -84,6 +84,7 @@ def main() -> None:
     ap.add_argument("--placer", choices=("search", "claude"), default="search")
     ap.add_argument("--note", default="")
     ap.add_argument("--out", default=str(ROOT / "docs" / "EVAL.md"))
+    ap.add_argument("--fixtures", default="pic_programmer,rpi_hat")
     a = ap.parse_args()
     client = httpx.Client(base_url=a.api, timeout=120)
     lines = [
@@ -97,7 +98,7 @@ def main() -> None:
         "| proxy cost | track mm | vias | violations | s |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
-    for fx in ("pic_programmer", "rpi_hat"):
+    for fx in a.fixtures.split(","):
         d = FIXTURES / fx
         has_routed_board = fx == "pic_programmer"
         if has_routed_board:
