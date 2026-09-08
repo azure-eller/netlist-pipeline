@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     s3_endpoint: str | None = "http://localhost:9000"  # unset in production (real S3)
 
     worker_poll_seconds: float = 1.0
-    job_stale_after_seconds: int = 900
+    job_timeout_seconds: int = 3600  # per job; also when a 'running' job counts as stale
     job_max_attempts: int = 3
 
     kicad_cli: str = "kicad-cli"

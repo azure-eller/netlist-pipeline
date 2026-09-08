@@ -55,7 +55,7 @@ def requeue_stale(conn: psycopg.Connection) -> int:
         cur.execute(
             "update jobs set status = 'queued' where status = 'running' "
             "and started_at < now() - make_interval(secs => %s)",
-            (settings.job_stale_after_seconds,),
+            (settings.job_timeout_seconds,),
         )
         n = cur.rowcount
     conn.commit()

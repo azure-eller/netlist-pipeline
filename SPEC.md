@@ -39,7 +39,7 @@ files cannot (see Constraints).
 
 Any stage failure marks the stage and the run `failed` with the error text and stops the chain.
 Jobs retry up to three times on worker crash (stale `running` jobs are requeued after
-`JOB_STALE_AFTER_SECONDS`); a stage exception does not retry.
+`JOB_TIMEOUT_SECONDS`); a stage exception does not retry.
 
 ## Contracts
 
