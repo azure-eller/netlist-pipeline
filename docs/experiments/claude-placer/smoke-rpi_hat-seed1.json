@@ -1,0 +1,87 @@
+{
+ "model": "claude-fable-5-1",
+ "effort": "low",
+ "seed": 1,
+ "prompt_chars": 2310,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 45758,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1577,
+  "output_tokens_details": {
+   "thinking_tokens": 1186
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 45758,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1577,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 45758,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 45758
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard"
+ },
+ "num_turns": 2,
+ "total_cost_usd": 0.99403,
+ "seconds": 24.001372242011712,
+ "output": {
+  "positions": [
+   {
+    "ref": "U1",
+    "x": 135.5,
+    "y": 58.5,
+    "rot": 180
+   },
+   {
+    "ref": "C1",
+    "x": 130,
+    "y": 59.25,
+    "rot": 90
+   },
+   {
+    "ref": "R1",
+    "x": 142,
+    "y": 56.75,
+    "rot": 180
+   },
+   {
+    "ref": "R2",
+    "x": 142,
+    "y": 59.25,
+    "rot": 180
+   },
+   {
+    "ref": "JP1",
+    "x": 133.75,
+    "y": 63.75,
+    "rot": 0
+   }
+  ],
+  "rationale": "Kept the annealer's cluster intact (C1 3.1 mm from U1.8, R1/R2 beside U1 under J1 pins 27/28 at x\u2248141) but shifted the whole group down 4.25 mm: J1's courtyard (HAT header along the top edge, bottom \u2248 y 52.6) was within 1 mm of / overlapping U1 and R1 at y 52.5\u201354. New group clears J1 by >1 mm, all inter-part gaps \u22651.04 mm, everything inside the outline."
+ },
+ "moved": [
+  "C1",
+  "JP1",
+  "R1",
+  "R2",
+  "U1"
+ ],
+ "rejected": [],
+ "search_cost": 673.0039950294905,
+ "refined_cost": 685.7663230316853
+}

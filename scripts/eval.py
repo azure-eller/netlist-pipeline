@@ -1,13 +1,14 @@
 """Run the fixtures through the pipeline and write docs/EVAL.md.
 
 For each fixture: judge mode on the human layout (the oracle) and generate mode with N seeds
-(search). Same judge, same verification, side by side. Usage: scripts/eval.py [api_url] [seeds]
+using the chosen placer. Same judge, same verification, side by side.
+Usage: scripts/eval.py [api_url] [seeds] [--placer search|claude] [--note TEXT]
 """
 
 from __future__ import annotations
 
+import argparse
 import io
-import sys
 import time
 import zipfile
 from pathlib import Path
@@ -17,8 +18,6 @@ import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
-API = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
-SEEDS = int(sys.argv[2]) if len(sys.argv) > 2 else 3
 
 
 def zip_dir(d: Path) -> bytes:
@@ -43,6 +42,19 @@ def run(client: httpx.Client, name: str, data: bytes, **params: Any) -> dict[str
         time.sleep(3)
 
 
+def proxy_cost(j: dict[str, Any]) -> str:
+    """`search -> refined` per seed for claude runs (from the place stage details), else ''."""
+    if j.get("placer") != "claude":
+        return ""
+    stage = next((s for s in j.get("stages", []) if s["name"] == "place"), None)
+    details = (stage or {}).get("details") or {}
+    return ", ".join(
+        f"{d['search_cost']:.0f} -> {d['refined_cost']:.0f}"
+        for _, d in sorted(details.items())
+        if isinstance(d, dict)
+    )
+
+
 def row(label: str, j: dict[str, Any]) -> str:
     v = j.get("verification") or {}
     chosen = next((c for c in j["candidates"] if c["chosen"]), None) or {}
@@ -50,11 +62,13 @@ def row(label: str, j: dict[str, Any]) -> str:
     totals = m.get("totals", {})
     cells = [
         label,
+        j.get("placer", "") if j["mode"] == "generate" else "",
         j["status"],
         v.get("passed", ""),
         (v.get("drc") or {}).get("errors", ""),
         v.get("unrouted", ""),
         round(chosen["score"], 2) if chosen.get("score") is not None else "",
+        proxy_cost(j),
         round(totals["track_length_mm"]) if "track_length_mm" in totals else "",
         totals.get("via_count", ""),
         totals.get("violations", ""),
@@ -64,16 +78,23 @@ def row(label: str, j: dict[str, Any]) -> str:
 
 
 def main() -> None:
-    client = httpx.Client(base_url=API, timeout=120)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("api", nargs="?", default="http://localhost:8000")
+    ap.add_argument("seeds", nargs="?", type=int, default=3)
+    ap.add_argument("--placer", choices=("search", "claude"), default="search")
+    ap.add_argument("--note", default="")
+    a = ap.parse_args()
+    client = httpx.Client(base_url=a.api, timeout=120)
     lines = [
         "# Eval",
         "",
-        f"API `{API}`, seeds per generate run: {SEEDS}. Human layouts are judged by the same judge",
-        "and verified by the same checks as the generated ones.",
+        f"API `{a.api}`, seeds per generate run: {a.seeds}, placer: {a.placer}. Human layouts "
+        "are judged by the same judge and verified by the same checks as the generated ones.",
+        *(["", a.note] if a.note else []),
         "",
-        "| fixture / config | status | verified | DRC errors | unrouted | score "
-        "| track mm | vias | violations | s |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| fixture / config | placer | status | verified | DRC errors | unrouted | score "
+        "| proxy cost | track mm | vias | violations | s |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for fx in ("pic_programmer", "rpi_hat"):
         d = FIXTURES / fx
@@ -82,8 +103,15 @@ def main() -> None:
             lines.append(row(f"{fx} / human layout (judge)", run(client, f"{fx}.zip", zip_dir(d))))
         lines.append(
             row(
-                f"{fx} / search x{SEEDS} (generate)",
-                run(client, f"{fx}.zip", zip_dir(d), mode="generate", seeds=SEEDS),
+                f"{fx} / {a.placer} x{a.seeds} (generate)",
+                run(
+                    client,
+                    f"{fx}.zip",
+                    zip_dir(d),
+                    mode="generate",
+                    seeds=a.seeds,
+                    placer=a.placer,
+                ),
             )
         )
         print(lines[-1])

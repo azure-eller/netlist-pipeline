@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import math
 import random
+import sys
 import time
 from collections.abc import Callable
 from dataclasses import replace
@@ -28,8 +29,10 @@ from pipeline.models import Board, Constraints, Netlist, Via
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests/fixtures/pic_programmer/pic_programmer.kicad_pcb"
-OUT = ROOT / "models/judge-v2.joblib"
-S3_KEY = "models/judge/v2.joblib"
+VERSION = sys.argv[1] if len(sys.argv) > 1 else "v2"  # scripts/train_judge.py v3 100
+MAX_MOVE_MM = float(sys.argv[2]) if len(sys.argv) > 2 else 40.0
+OUT = ROOT / f"models/judge-{VERSION}.joblib"
+S3_KEY = f"models/judge/{VERSION}.joblib"
 SAMPLES = 2000
 SEED = 0
 
@@ -51,7 +54,7 @@ def move_cap(b: Board, c: Constraints, rng: random.Random) -> Board:
     caps = [f for f in b.footprints if f.ref.startswith("C")]
     if not caps:
         return b
-    f, d, a = rng.choice(caps), rng.uniform(0, 40), rng.uniform(0, 2 * math.pi)
+    f, d, a = rng.choice(caps), rng.uniform(0, MAX_MOVE_MM), rng.uniform(0, 2 * math.pi)
     dx, dy = d * math.cos(a), d * math.sin(a)
     x1, y1, x2, y2 = f.courtyard
     moved = replace(
@@ -129,7 +132,8 @@ def main() -> None:
     r2, mae = float(r2_score(y_test, pred)), float(mean_absolute_error(y_test, pred))
     artifact = {
         "name": "learned-gbr",
-        "version": "v2",
+        "version": VERSION,
+        "max_move_mm": MAX_MOVE_MM,
         "model": model,
         "feature_names": list(learned.FEATURES),
         "trained_at": datetime.now(UTC).isoformat(timespec="seconds"),
