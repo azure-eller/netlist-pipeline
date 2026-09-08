@@ -28,6 +28,50 @@ def _mm(v: float) -> int:
     return int(pcbnew.FromMM(v))
 
 
+COPPER_BLOCKS = ("segment", "arc", "via", "zone")
+
+
+def strip_copper(text: str) -> str:
+    """Drop top-level (segment|arc|via|zone ...) blocks from .kicad_pcb text, byte-exact
+    otherwise. Walks parens, skipping quoted strings."""
+    out: list[str] = []
+    i, n, depth = 0, len(text), 0
+    while i < n:
+        c = text[i]
+        if c == '"':
+            j = i + 1
+            while text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            out.append(text[i : j + 1])
+            i = j + 1
+            continue
+        if c == "(" and depth == 1:
+            head = text[i + 1 : i + 12].split()[0] if text[i + 1 : i + 12].split() else ""
+            if head in COPPER_BLOCKS:
+                d, j = 0, i
+                while True:  # find the matching close paren
+                    ch = text[j]
+                    if ch == '"':
+                        j += 1
+                        while text[j] != '"':
+                            j += 2 if text[j] == "\\" else 1
+                    elif ch == "(":
+                        d += 1
+                    elif ch == ")":
+                        d -= 1
+                        if d == 0:
+                            break
+                    j += 1
+                i = j + 1
+                while i < n and text[i] in " \t\n":
+                    i += 1
+                continue
+        depth += (c == "(") - (c == ")")
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def load_footprint(fpid: str | None, ref: str) -> Any:
     lib, _, name = (fpid or "").partition(":")
     if not name:
@@ -54,9 +98,11 @@ def build_unplaced(
     netlist: Netlist, constraints: Constraints, template: Path | None, out: Path
 ) -> dict[str, Any]:
     if template:
-        board = pcbnew.LoadBoard(str(template))
-        for item in _items(board.Tracks()) + list(board.Zones()):
-            board.Remove(item)
+        # Strip copper in the text, not through pcbnew: removing hundreds of tracks via
+        # board.Remove() segfaults the SWIG bindings.
+        stripped = out.with_name("template_stripped.kicad_pcb")
+        stripped.write_text(strip_copper(template.read_text()))
+        board = pcbnew.LoadBoard(str(stripped))
     else:
         board = pcbnew.BOARD()
     fps = {fp.GetReference(): fp for fp in board.GetFootprints()}

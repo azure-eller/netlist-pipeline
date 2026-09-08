@@ -1,4 +1,5 @@
 import shutil
+import tempfile
 from dataclasses import replace
 from pathlib import Path
 
@@ -97,3 +98,17 @@ def test_route(hat: tuple[Netlist, Path], tmp_path: Path, monkeypatch: pytest.Mo
     assert r["passes"] == 5
     assert r["unrouted"] == 0 == pcb.unrouted_count(routed)
     assert len(pcbnew.LoadBoard(str(routed)).Tracks()) > 0
+
+
+def test_strip_copper_removes_tracks_vias_zones_and_keeps_footprints() -> None:
+    from pipeline.pcb import strip_copper
+
+    src = (FIXTURES / "pic_programmer" / "pic_programmer.kicad_pcb").read_text()
+    out = strip_copper(src)
+    for block in ("(segment", "(via", "(zone\n", "(arc"):
+        assert block not in out.replace("(zone_connect", "")
+    assert out.count("(footprint") == src.count("(footprint")
+    path = Path(tempfile.mkdtemp()) / "stripped.kicad_pcb"
+    path.write_text(out)
+    b = pcbnew.LoadBoard(str(path))
+    assert len(b.Tracks()) == 0 and len(b.Zones()) == 0 and len(b.GetFootprints()) == 63
