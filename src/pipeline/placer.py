@@ -151,21 +151,34 @@ def place(
     netlist: Netlist,
     constraints: Constraints,
     seed: int,
-    iterations: int = 20000,
+    iterations: int | None = None,
 ) -> tuple[dict[str, Pose], float]:
-    """Anneal from the board's current (grid) layout. Returns (ref -> pose, proxy cost)."""
+    """Anneal from the board's current (grid) layout. Returns (ref -> pose, proxy cost).
+
+    Parts never leave the outline (moves are clamped), so the search only trades wire length
+    against overlap. Iterations scale with the number of movable parts."""
     m = _Model(board, netlist, constraints)
     rng = random.Random(seed)
     pose = m.initial()
     netted = {n.ref for net in netlist.nets for n in net.nodes}
     # parts with no netted pads (mounting holes) are mechanical: never moved
     movable = [r for r in pose if r not in constraints.fixed and r in netted]
-    geo = {r: m.transform(r, p) for r, p in pose.items()}
-    cur = m.cost(geo)
     if not movable:
-        return pose, cur
+        return pose, m.cost({r: m.transform(r, p) for r, p in pose.items()})
     ox1, oy1, ox2, oy2 = board.outline
     span = max(ox2 - ox1, oy2 - oy1)
+    iterations = iterations or max(20000, 1500 * len(movable))
+
+    def clamp(ref: str, p: Pose) -> Pose:
+        c = m.transform(ref, p)[1]
+        dx = max(0.0, ox1 - c[0]) + min(0.0, ox2 - c[2])
+        dy = max(0.0, oy1 - c[1]) + min(0.0, oy2 - c[3])
+        return (p[0] + dx, p[1] + dy, p[2])
+
+    for r in movable:
+        pose[r] = clamp(r, pose[r])
+    geo = {r: m.transform(r, p) for r, p in pose.items()}
+    cur = m.cost(geo)
 
     def propose(scale: float) -> dict[str, Pose]:
         ref = rng.choice(movable)
@@ -176,12 +189,12 @@ def place(
             dx, dy = _snap(rng.uniform(-s, s)), _snap(rng.uniform(-s, s))
             if dx == 0 and dy == 0:
                 dx, dy = rng.choice(((GRID, 0.0), (-GRID, 0.0), (0.0, GRID), (0.0, -GRID)))
-            return {ref: (x + dx, y + dy, rot)}
+            return {ref: clamp(ref, (x + dx, y + dy, rot))}
         if u < 0.9 or len(movable) < 2:
-            return {ref: (x, y, (rot + 90) % 360)}
+            return {ref: clamp(ref, (x, y, (rot + 90) % 360))}
         other = rng.choice([r for r in movable if r != ref])
         ox, oy, orot = pose[other]
-        return {ref: (ox, oy, rot), other: (x, y, orot)}
+        return {ref: clamp(ref, (ox, oy, rot)), other: clamp(other, (x, y, orot))}
 
     def trial(new: dict[str, Pose]) -> float:
         g = dict(geo)
@@ -190,13 +203,14 @@ def place(
         return m.cost(g)
 
     # initial temperature: ~50% acceptance of the uphill moves seen from the start state
-    ups = [d for d in (trial(propose(1.0)) - cur for _ in range(50)) if d > 0]
-    t0 = (sum(ups) / len(ups)) / math.log(2) if ups else 1.0
+    ups = sorted(d for d in (trial(propose(1.0)) - cur for _ in range(100)) if d > 0)
+    t0 = ups[len(ups) // 2] / math.log(2) if ups else 1.0  # median: robust to overlap spikes
 
     best, best_cost = dict(pose), cur
+    anneal = int(iterations * 0.9)  # last 10%: greedy settle at T -> 0
     for i in range(iterations):
-        t = t0 * 0.01 ** (i / iterations)
-        new = propose(t / t0)
+        t = t0 * 0.001 ** (i / anneal) if i < anneal else 1e-9
+        new = propose(min(1.0, t / t0))
         old_pose = {r: pose[r] for r in new}
         old_geo = {r: geo[r] for r in new}
         for r, p in new.items():
