@@ -29,7 +29,15 @@ from pipeline.models import Constraints, Netlist
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "golden"
 LEDGER = ROOT / "docs" / "experiments" / "golden.jsonl"
-CASES = ("pic_human", "pic_generated", "rpi_generated", "pic_cap_far", "rpi_thin")
+CASES = (
+    "pic_human",
+    "pic_generated",
+    "rpi_generated",
+    "pic_cap_far",
+    "rpi_thin",
+    "rpi_fast",  # I2C nets declared high-speed at 50 ohm: impedance rule live, must violate
+    "rpi_fast_tuned",  # same nets, target = the closed form's own answer: physics decides
+)
 ORDER = (("pic_cap_far", "pic_human"), ("rpi_thin", "rpi_generated"))  # worse < better
 PIC_GEN_RUN, RPI_GEN_RUN = 34, 27  # local runs the generated boards were captured from
 Case = dict[str, Any]  # {"score", "violations": [{"rule", "net", "ref"}], "totals"}
@@ -48,13 +56,18 @@ def load_expected() -> dict[str, Case]:
     return {c: json.loads((GOLDEN / c / "expected.json").read_text()) for c in CASES}
 
 
-def score_rules(name: str) -> Case:
+def score_rules(name: str, physics: str = "rules") -> Case:
+    """In-process judge: the closed-form reference ("rules") or the field solver ("oracle")."""
+    from pipeline import physics as ph
+
+    provider = ph.Oracle() if physics == "oracle" else ph.FORMULA
     text, nl, c = load_case(name)
-    r = judge.score(board.parse(text), nl, c)
+    r = judge.score(board.parse(text), nl, c, physics=provider)
     return {
         "score": r.score,
         "violations": [{"rule": v.rule, "net": v.net, "ref": v.ref} for v in r.violations],
         "totals": r.metrics["totals"],
+        "judge": r.judge,
     }
 
 
@@ -233,13 +246,31 @@ def capture() -> None:
     rpi = _chosen_board(RPI_GEN_RUN)
     _write_case("rpi_generated", rpi, nl, c)
     _write_case("rpi_thin", thin(rpi, "+5V", 0.15), nl, c)
+    # impedance-live cases: the HAT's routed I2C nets as high-speed. Without these no golden
+    # case exercises the physics provider at all (the fixtures' fast nets carry no copper).
+    fast = dict(c, classes={**c["classes"], "/ID_SDA": "high_speed", "/ID_SCL": "high_speed"})
+    _write_case("rpi_fast", rpi, nl, fast)
+    from pipeline import physics
+
+    z_formula = physics.FORMULA.z0(
+        0.2,
+        c["stackup"]["dielectric_mm"],
+        c["stackup"]["copper_um"] / 1000,
+        c["stackup"]["er"],
+        inner=False,
+    )
+    tuned = dict(fast, impedance_ohm={**c["impedance_ohm"], "high_speed": round(z_formula, 1)})
+    _write_case("rpi_fast_tuned", rpi, nl, tuned)
     update()
 
 
-def update() -> None:
+def update(physics: str = "rules") -> None:
+    """Rewrite expected.json from the in-process judge. With --physics oracle the expected
+    answers come from the field solver, which is the truth the surrogate is gated against."""
     for name in CASES:
-        (GOLDEN / name / "expected.json").write_text(json.dumps(score_rules(name), indent=1) + "\n")
-        print(f"wrote {name}/expected.json")
+        case = score_rules(name, physics)
+        (GOLDEN / name / "expected.json").write_text(json.dumps(case, indent=1) + "\n")
+        print(f"wrote {name}/expected.json ({case['judge']['name']} {case['judge']['version']})")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -248,16 +279,24 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--capture", action="store_true", help="rebuild cases from local runs")
     ap.add_argument("--update", action="store_true", help="rewrite expected.json (rules judge)")
     ap.add_argument("--approve", action="store_true", help="record a passing version")
+    ap.add_argument(
+        "--physics",
+        choices=("rules", "oracle"),
+        default="rules",
+        help="in-process judge to score (and, with --update, to capture expected) with",
+    )
     a = ap.parse_args(argv)
     if a.capture:
         capture()
     elif a.update:
-        update()
+        update(a.physics)
 
     meta = info(a.judge_url)
-    got = {c: score_remote(a.judge_url, c) if a.judge_url else score_rules(c) for c in CASES}
-    if meta["name"] == "unknown":
-        meta.update(got[CASES[0]].get("judge") or {})
+    got = {
+        c: score_remote(a.judge_url, c) if a.judge_url else score_rules(c, a.physics) for c in CASES
+    }
+    if meta["name"] == "unknown" or not a.judge_url:
+        meta.update(got[CASES[0]].get("judge") or {})  # in-process: rules or oracle
     passed, cases = compare(load_expected(), got, meta["capabilities"])
 
     print(f"judge {meta['name']} {meta['version']} capabilities={meta['capabilities']}")

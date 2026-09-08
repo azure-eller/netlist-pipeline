@@ -148,6 +148,35 @@ A judge version reaches the worker only after it agrees with the golden set.
   experiment with a row in the eval table, never a silent fallback: if the SDK call fails, the
   stage fails.
 
+## Physics: oracle, datasets, surrogate
+
+The judge's rules never change; where its impedance numbers come from does
+(`pipeline/physics.py`):
+
+| provider | name | what it is | speed |
+|---|---|---|---|
+| closed form | `rules 0.1.0` | IPC-2141 formulas, the original reference | microseconds |
+| oracle | `oracle-fd <solver version>` | `pipeline/fields.py`, a 2D quasi-static finite-difference field solver on the trace cross-section, validated against the Hammerstad closed form | under a second per geometry |
+| surrogate | `learned-fd <version>` | a model trained on oracle-solved geometries, gated against the oracle on the golden set | microseconds |
+
+**Datasets** (`pipeline/data.py`, `scripts/dataset.py`, tables `datasets`, `dataset_shards`):
+`make dataset SHARDS=n N=m SEED=s` samples cross-sections from ranges seen on real boards,
+solves them with the oracle in `data:shard` jobs through the same queue as everything else,
+writes JSONL shards to `datasets/<id>/shard-NNN.jsonl` and a manifest with sampler version,
+solver version, seed, per-shard sha256 and counts. A dataset is `ready` only when every shard
+is present and hashed. Regenerating a shard is `--only-shard`.
+
+**Models** (`scripts/train_surrogate.py`, table `models`): reads a ready dataset by manifest,
+trains, reports held-out error and error on fresh oracle-solved geometries, uploads
+`models/judge/<version>.joblib` with the dataset id, solver and sampler versions, and metrics
+inside the artifact, and inserts a `models` row. `JUDGE_VERSION=<version> make judge` serves
+it; `JUDGE_VERSION=oracle` serves the oracle itself.
+
+**Truth for the gate**: `scripts/golden.py --physics oracle --update` rewrites the golden
+set's expected answers from the oracle. A surrogate is approved only if it agrees with the
+oracle on those boards within tolerance; the closed form is measured against the oracle the
+same way.
+
 ## Verification (independent of the judge)
 
 Passed iff all of: DRC with schematic parity reports zero errors, excluding silkscreen rules

@@ -61,3 +61,17 @@ plumbing with a toy is cheaper than waiting for the model, and the plumbing is t
 shown a language model beats search at placement on real boards. The pipeline can measure it:
 same router, same judge, same verification, a record on disk per proposal. Whatever the table
 says is what gets said on the call.
+
+**Our own 2D field solver as the oracle, not openEMS.** A full-wave solver would be truer and
+would take a day to install and minutes per net. A quasi-static finite-difference Laplace
+solve on the trace cross-section is two hundred lines of numpy and scipy, runs in about a
+second, and validates within one percent of the Hammerstad closed form. It is real physics
+with known limits (no loss, no dispersion, one ground plane), and it is enough to be the
+truth a surrogate is trained on and gated against. The pipeline does not care which solver
+sits there; swapping in openEMS changes one module and the solver version string.
+
+**Synthetic data from the solver, through the same queue.** Training data is sampled
+geometry solved by the oracle, generated as shard jobs by the same workers that build boards,
+with a manifest carrying sampler and solver versions, seed, counts and hashes. A dataset is
+reproducible from its manifest and a model artifact names its dataset. That is the whole
+provenance chain from a judge's number back to the equation that produced its training label.

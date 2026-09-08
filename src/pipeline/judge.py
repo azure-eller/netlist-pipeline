@@ -12,6 +12,7 @@ from collections import Counter, defaultdict
 from typing import Any
 
 from pipeline.models import Board, Constraints, JudgeResult, Netlist, Segment, Violation
+from pipeline.physics import FORMULA, Physics
 
 JUDGE = {"name": "rules", "version": "0.1.0"}
 
@@ -89,7 +90,10 @@ def _excess(v: Violation) -> float:
     return min(abs(v.measured - v.threshold) / v.threshold, 5.0)
 
 
-def score(board: Board, netlist: Netlist, constraints: Constraints) -> JudgeResult:
+def score(
+    board: Board, netlist: Netlist, constraints: Constraints, physics: Physics | None = None
+) -> JudgeResult:
+    ph: Physics = physics or FORMULA
     c = constraints
     st = c.stackup
     h, t = st.dielectric_mm, st.copper_um / 1000
@@ -115,7 +119,7 @@ def score(board: Board, netlist: Netlist, constraints: Constraints) -> JudgeResu
         if not segs[net]:
             continue
         s = min(segs[net], key=lambda x: x.width)
-        z = (z0_microstrip if s.layer in OUTER else z0_stripline)(s.width, h, t, st.er)
+        z = ph.z0(s.width, h, t, st.er, inner=s.layer not in OUTER)
         nets[net].update(z0_ohm=z, width_mm=s.width, layer=s.layer)
         cls = c.net_class(net)
         if cls == "diff":
@@ -126,7 +130,7 @@ def score(board: Board, netlist: Netlist, constraints: Constraints) -> JudgeResu
                 if a.layer == b.layer and (r := parallel_run(a, b))
             ]
             gap = min(gaps) if gaps else 2 * s.width
-            z = zdiff_microstrip(z, gap, h)
+            z = ph.zdiff(s.width, gap, h, t, st.er, inner=s.layer not in OUTER)
             nets[net].update(zdiff_ohm=z, spacing_mm=gap)
         target = c.impedance_ohm.get(cls)
         if target and abs(z - target) / target > IMPEDANCE_TOL:
@@ -269,4 +273,9 @@ def score(board: Board, netlist: Netlist, constraints: Constraints) -> JudgeResu
             "violations": len(violations),
         },
     }
-    return JudgeResult(-penalty if penalty else 0.0, metrics, violations, dict(JUDGE))
+    return JudgeResult(
+        -penalty if penalty else 0.0,
+        metrics,
+        violations,
+        {"name": ph.name, "version": ph.version},
+    )

@@ -16,3 +16,19 @@ Note: C1 already violates decoupling in the human layout (11.8 mm from U3 pin 5 
 carries no VCC pad), and the one `+5V` segment on the HAT already violates current at 0.2 mm.
 The two mutated cases therefore worsen an existing violation rather than adding one; the
 ordering constraints are what the gate checks.
+
+## Impedance-live cases (added 2026-09-08)
+
+The five original cases never exercise the impedance rule: the fixtures' fast nets carry no
+copper. Two cases fix that, both on the generated HAT board with its routed I2C nets declared
+`high_speed`:
+
+- `rpi_fast`: target 50 ohm. A 0.2 mm trace over 1.51 mm FR-4 is far from 50 ohm, so both
+  nets violate under every provider; the score depends on the provider's z0 (oracle -20.58,
+  closed form -20.88).
+- `rpi_fast_tuned`: target set to the closed form's own answer for that geometry. The formula
+  passes by construction; the oracle passes only if its z0 is within 10% of the formula's,
+  which it is here. A surrogate that drifts fails this case first.
+
+Expected answers for every case now come from the oracle (`scripts/golden.py --physics
+oracle --update`); the closed form is measured against them like any other judge and passes.

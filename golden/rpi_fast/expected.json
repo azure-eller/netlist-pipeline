@@ -1,6 +1,16 @@
 {
- "score": -3.4299016474610946,
+ "score": -20.576054321653295,
  "violations": [
+  {
+   "rule": "impedance",
+   "net": "/ID_SDA",
+   "ref": null
+  },
+  {
+   "rule": "impedance",
+   "net": "/ID_SCL",
+   "ref": null
+  },
   {
    "rule": "current",
    "net": "+5V",
@@ -16,7 +26,7 @@
   "track_length_mm": 141.73838482532167,
   "via_count": 2,
   "unrouted": 0,
-  "violations": 2
+  "violations": 4
  },
  "judge": {
   "name": "oracle-fd",

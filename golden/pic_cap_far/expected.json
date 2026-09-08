@@ -22,5 +22,9 @@
   "via_count": 6,
   "unrouted": 0,
   "violations": 3
+ },
+ "judge": {
+  "name": "oracle-fd",
+  "version": "fd2d-0.1"
  }
 }
