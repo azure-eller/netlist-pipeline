@@ -14,7 +14,7 @@ from pipeline.config import settings
 def _client() -> Any:
     return boto3.client(
         "s3",
-        endpoint_url=settings.s3_endpoint,
+        endpoint_url=settings.s3_endpoint or None,  # "" on Render means real S3
         aws_access_key_id=settings.s3_access_key,
         aws_secret_access_key=settings.s3_secret_key,
         region_name=settings.s3_region,
