@@ -22,7 +22,9 @@ def run_one(job_id: int) -> None:
     """Child: run one claimed job to completion. Stage/run rows record the outcome."""
     log.configure()
     stages.load_all()
+    logger.info("child_started", job_id=job_id)
     with db.connect() as conn:
+        logger.info("child_db_connected", job_id=job_id)
         with conn.cursor() as cur:
             cur.execute("select id, kind, payload, attempts from jobs where id = %s", (job_id,))
             row = cur.fetchone()

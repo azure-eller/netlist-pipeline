@@ -10,9 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from pipeline import storage
+from pipeline import log, storage
 from pipeline.models import Constraints, Netlist
 from pipeline.stages import Ctx
+
+logger = log.get("stages")
 
 
 @dataclass
@@ -29,7 +31,9 @@ def unpack(ctx: Ctx, into: Path | None = None) -> Unpacked:
     with ctx.conn.cursor() as cur:
         cur.execute("select filename, object_key from designs where id = %s", (ctx.design_id,))
         filename, key = cur.fetchone()  # type: ignore[misc]
+    logger.info("unpack_fetch", run_id=ctx.run_id, key=key)
     data = storage.get(key)
+    logger.info("unpack_fetched", run_id=ctx.run_id, bytes=len(data))
     d = into or Path(tempfile.mkdtemp(prefix=f"run{ctx.run_id}-"))
     if filename.lower().endswith(".zip"):
         with zipfile.ZipFile(io.BytesIO(data)) as z:

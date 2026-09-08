@@ -10,6 +10,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from pipeline import log
 from pipeline.config import settings
 
 
@@ -21,6 +22,7 @@ def run(
     args: list[str | Path], cwd: Path | None = None, timeout: int = 600
 ) -> subprocess.CompletedProcess[str]:
     argv = [str(a.resolve()) if isinstance(a, Path) else a for a in args]
+    log.get("kicad").info("kicad_cli", args=argv[:4])
     env = dict(os.environ)
     env.setdefault("HOME", tempfile.gettempdir())  # kicad-cli wants a writable config dir
     p = subprocess.run(
