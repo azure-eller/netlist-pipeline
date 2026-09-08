@@ -30,7 +30,13 @@ def run_one(job_id: int) -> None:
             row = cur.fetchone()
         if row is None:
             raise SystemExit(f"job {job_id} not found")
-        stages.run(conn, jobs.Job(row[0], row[1], row[2], row[3]))
+        try:
+            stages.run(conn, jobs.Job(row[0], row[1], row[2], row[3]))
+        except Exception:  # noqa: BLE001
+            # The stage and run rows already record the failure; a deterministic stage error
+            # is not retried. Exit 0 so the parent marks the job done. Crashes and timeouts
+            # (non-zero exit, no rows written) still retry.
+            return
 
 
 def main() -> None:
