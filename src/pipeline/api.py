@@ -12,6 +12,12 @@ logger = log.get("api")
 app = FastAPI(title="netlist-pipeline", version="0.1.0")
 
 
+@app.on_event("startup")
+def _startup() -> None:
+    db.migrate()  # idempotent; the worker does the same, whichever boots first wins
+    storage.ensure_bucket()
+
+
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     with db.connect() as conn, conn.cursor() as cur:
