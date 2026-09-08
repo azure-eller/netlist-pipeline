@@ -46,6 +46,7 @@ class Ctx:
     seeds: int
     oracle: bool
     stage_id: int
+    placer: str = "search"
     tool: str | None = None
     tool_version: str | None = None
     input_hash: str | None = None
@@ -74,8 +75,10 @@ def run(conn: psycopg.Connection, job: jobs.Job) -> None:
     run_id = int(job.payload["run_id"])
     name = job.kind
     with conn.cursor() as cur:
-        cur.execute("select design_id, mode, seeds, oracle from runs where id = %s", (run_id,))
-        design_id, mode, seeds, oracle = cur.fetchone()  # type: ignore[misc]
+        cur.execute(
+            "select design_id, mode, seeds, oracle, placer from runs where id = %s", (run_id,)
+        )
+        design_id, mode, seeds, oracle, placer = cur.fetchone()  # type: ignore[misc]
         cur.execute("update runs set status = 'running' where id = %s", (run_id,))
         cur.execute(
             "insert into stages (run_id, name, status) values (%s, %s, 'running') returning id",
@@ -83,7 +86,7 @@ def run(conn: psycopg.Connection, job: jobs.Job) -> None:
         )
         stage_id = int(cur.fetchone()[0])  # type: ignore[index]
     conn.commit()
-    ctx = Ctx(conn, run_id, design_id, mode, seeds, oracle, stage_id)
+    ctx = Ctx(conn, run_id, design_id, mode, seeds, oracle, stage_id, placer=placer)
     slog = logger.bind(run_id=run_id, stage=name)
     started = datetime.now(UTC)
     try:

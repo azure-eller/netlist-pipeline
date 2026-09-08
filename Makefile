@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 export PYTHONPATH := src
 
-.PHONY: up down migrate api worker lint type test e2e check demo eval build
+.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge build
 
 up:            ## start Postgres + MinIO
 	docker compose up -d postgres minio
@@ -18,6 +18,15 @@ api:
 
 worker:
 	$(PY) -m pipeline.worker
+
+judge:          ## versioned judge service; JUDGE_VERSION=v2 loads the artifact from S3
+	.venv/bin/uvicorn pipeline.judge_api:app --port 8100
+
+golden:         ## run a judge against the golden set (JUDGE_URL optional)
+	$(PY) scripts/golden.py $(if $(JUDGE_URL),--judge-url $(JUDGE_URL),)
+
+train-judge:    ## distill the rule judge into models/judge-v2.joblib and upload it
+	$(PY) scripts/train_judge.py
 
 lint:
 	.venv/bin/ruff format --check src tests scripts && .venv/bin/ruff check src tests scripts

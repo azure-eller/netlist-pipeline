@@ -22,6 +22,9 @@ class Settings(BaseSettings):
 
     judge_url: str | None = None
     judge_token: str | None = None
+    judge_version: str = "rules"  # "rules" = in-process reference; else an approved artifact
+    judge_artifact: str | None = None  # S3 key or local path; default models/judge/<version>.joblib
+    experiments_dir: str | None = "docs/experiments"  # unset on Render: no experiment records
     sentry_dsn: str | None = None
 
 

@@ -26,10 +26,13 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def _start_run(cur: Any, design_id: int, mode: str, seeds: int, oracle: bool) -> int:
+def _start_run(
+    cur: Any, design_id: int, mode: str, seeds: int, oracle: bool, placer: str = "search"
+) -> int:
     cur.execute(
-        "insert into runs (design_id, mode, seeds, oracle) values (%s, %s, %s, %s) returning id",
-        (design_id, mode, seeds, oracle),
+        "insert into runs (design_id, mode, seeds, oracle, placer) "
+        "values (%s, %s, %s, %s, %s) returning id",
+        (design_id, mode, seeds, oracle, placer),
     )
     run_id = int(cur.fetchone()[0])
     jobs.enqueue(cur, "extract_netlist", {"run_id": run_id})
@@ -42,6 +45,7 @@ async def upload_design(
     mode: str | None = Query(default=None, pattern="^(judge|generate)$"),
     seeds: int = Query(default=1, ge=1, le=10),
     oracle: bool = False,
+    placer: str = Query(default="search", pattern="^(search|claude)$"),
 ) -> dict[str, Any]:
     name = file.filename or "upload"
     if not (name.endswith(".kicad_sch") or name.endswith(".zip")):
@@ -58,7 +62,7 @@ async def upload_design(
         )
         design_id = int(cur.fetchone()[0])  # type: ignore[index]
         run_id = _start_run(
-            cur, design_id, mode or ("judge" if has_board else "generate"), seeds, oracle
+            cur, design_id, mode or ("judge" if has_board else "generate"), seeds, oracle, placer
         )
         conn.commit()
     logger.info("design_uploaded", design_id=design_id, run_id=run_id, sha256=sha, bytes=len(data))
@@ -71,6 +75,7 @@ def new_run(
     mode: str | None = Query(default=None, pattern="^(judge|generate)$"),
     seeds: int = Query(default=1, ge=1, le=10),
     oracle: bool = False,
+    placer: str = Query(default="search", pattern="^(search|claude)$"),
 ) -> dict[str, Any]:
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute("select has_board from designs where id = %s", (design_id,))
@@ -78,7 +83,7 @@ def new_run(
         if row is None:
             raise HTTPException(404, "design not found")
         run_id = _start_run(
-            cur, design_id, mode or ("judge" if row[0] else "generate"), seeds, oracle
+            cur, design_id, mode or ("judge" if row[0] else "generate"), seeds, oracle, placer
         )
         conn.commit()
     return {"design_id": design_id, "run_id": run_id}
@@ -116,7 +121,7 @@ def get_design(design_id: int) -> dict[str, Any]:
 def get_run(run_id: int) -> dict[str, Any]:
     with db.connect() as conn, conn.cursor() as cur:
         cur.execute(
-            "select id, design_id, mode, seeds, status, error, created_at, finished_at "
+            "select id, design_id, mode, seeds, status, error, created_at, finished_at, placer "
             "from runs where id = %s",
             (run_id,),
         )
@@ -134,6 +139,7 @@ def get_run(run_id: int) -> dict[str, Any]:
                     "error",
                     "created_at",
                     "finished_at",
+                    "placer",
                 ],
                 row,
                 strict=True,
