@@ -1,0 +1,26 @@
+{
+ "score": -16.121840376608763,
+ "violations": [
+  {
+   "rule": "decoupling",
+   "net": "VCC",
+   "ref": "C1"
+  },
+  {
+   "rule": "decoupling",
+   "net": "/pic_sockets/VCC_PIC",
+   "ref": "C7"
+  },
+  {
+   "rule": "decoupling",
+   "net": "/pic_sockets/VCC_PIC",
+   "ref": "C6"
+  }
+ ],
+ "totals": {
+  "track_length_mm": 1745.7030331706992,
+  "via_count": 6,
+  "unrouted": 0,
+  "violations": 3
+ }
+}

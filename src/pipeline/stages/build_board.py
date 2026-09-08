@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import json
 
-import pcbnew
-
 from pipeline import pcb, storage
 from pipeline.stages import Ctx, common, stage
 
@@ -26,7 +24,7 @@ def build_board(ctx: Ctx) -> None:
                 "insert into candidates (run_id, seed, board_key, chosen) values (%s, 0, %s, true)",
                 (ctx.run_id, key),
             )
-        ctx.provenance("pcbnew", pcbnew.GetBuildVersion(), storage.sha256(data))
+        ctx.provenance("pcbnew", pcb.build_version(), storage.sha256(data))
         ctx.details = {"source": "upload", "board_key": key}
     else:
         out = u.dir / "unplaced.kicad_pcb"
@@ -39,5 +37,5 @@ def build_board(ctx: Ctx) -> None:
         )
         storage.put(common.run_key(ctx, "unplaced.kicad_pcb"), data)
         source = u.pcb.read_bytes() if u.pcb else json.dumps(nl.to_json()).encode()
-        ctx.provenance("pcbnew", pcbnew.GetBuildVersion(), storage.sha256(source))
+        ctx.provenance("pcbnew", pcb.build_version(), storage.sha256(source))
     ctx.output_hash = storage.sha256(data)

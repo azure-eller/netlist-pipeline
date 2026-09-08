@@ -1,0 +1,21 @@
+{
+ "score": -4.9871964343372674,
+ "violations": [
+  {
+   "rule": "current",
+   "net": "+5V",
+   "ref": null
+  },
+  {
+   "rule": "current",
+   "net": "GND",
+   "ref": null
+  }
+ ],
+ "totals": {
+  "track_length_mm": 141.73838482532167,
+  "via_count": 2,
+  "unrouted": 0,
+  "violations": 2
+ }
+}

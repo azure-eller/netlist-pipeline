@@ -11,12 +11,21 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-import pcbnew
-
 from pipeline.config import settings
 from pipeline.models import Constraints, Netlist
 
 LIB_DIR = Path("/usr/share/kicad/footprints")
+
+
+def _pcbnew() -> Any:
+    """Import on first use: the bindings cost ~80 MB and only three stages need them."""
+    import pcbnew
+
+    return pcbnew
+
+
+def build_version() -> str:
+    return str(_pcbnew().GetBuildVersion())
 
 
 def _items(container: Any) -> list[Any]:
@@ -25,7 +34,7 @@ def _items(container: Any) -> list[Any]:
 
 
 def _mm(v: float) -> int:
-    return int(pcbnew.FromMM(v))
+    return int(_pcbnew().FromMM(v))
 
 
 COPPER_BLOCKS = ("segment", "arc", "via", "zone")
@@ -88,7 +97,7 @@ def load_footprint(fpid: str | None, ref: str) -> Any:
     lib_dir = LIB_DIR / f"{lib}.pretty"
     if not lib_dir.is_dir():
         raise ValueError(f"{ref}: footprint library {lib!r} not found in {LIB_DIR}")
-    fp = pcbnew.FootprintLoad(str(lib_dir), name)
+    fp = _pcbnew().FootprintLoad(str(lib_dir), name)
     if fp is None:
         raise ValueError(f"{ref}: footprint {fpid!r} not found in {lib_dir}")
     fp.SetReference(ref)
@@ -97,10 +106,10 @@ def load_footprint(fpid: str | None, ref: str) -> Any:
 
 def footprint_area_mm2(fp: Any) -> float:
     fp.BuildCourtyardCaches()
-    bb = fp.GetCourtyard(pcbnew.F_CrtYd).BBox()
+    bb = fp.GetCourtyard(_pcbnew().F_CrtYd).BBox()
     if bb.GetWidth() == 0:  # no courtyard drawn (old footprints)
         bb = fp.GetBoundingBox(False)
-    return float(pcbnew.ToMM(bb.GetWidth()) * pcbnew.ToMM(bb.GetHeight()))
+    return float(_pcbnew().ToMM(bb.GetWidth()) * _pcbnew().ToMM(bb.GetHeight()))
 
 
 def build_unplaced(
@@ -113,9 +122,9 @@ def build_unplaced(
         # net classes (track width, clearance, via size) live in the project file, and the
         # router must see the board's rules, not KiCad defaults.
         template.write_text(strip_copper(template.read_text()))
-        board = pcbnew.LoadBoard(str(template))
+        board = _pcbnew().LoadBoard(str(template))
     else:
-        board = pcbnew.BOARD()
+        board = _pcbnew().BOARD()
     fps = {fp.GetReference(): fp for fp in board.GetFootprints()}
     for c in netlist.components:
         if c.ref not in fps:
@@ -126,18 +135,18 @@ def build_unplaced(
 
     if template:
         bb = board.GetBoardEdgesBoundingBox()
-        x0, y0 = pcbnew.ToMM(bb.GetX()), pcbnew.ToMM(bb.GetY())
-        w, h = pcbnew.ToMM(bb.GetWidth()), pcbnew.ToMM(bb.GetHeight())
+        x0, y0 = _pcbnew().ToMM(bb.GetX()), _pcbnew().ToMM(bb.GetY())
+        w, h = _pcbnew().ToMM(bb.GetWidth()), _pcbnew().ToMM(bb.GetHeight())
     else:
         x0 = y0 = 0.0
         if constraints.outline_mm:
             w, h = constraints.outline_mm
         else:
             w = h = math.ceil(math.sqrt(3 * sum(footprint_area_mm2(f) for f in fps.values())))
-        rect = pcbnew.PCB_SHAPE(board, pcbnew.SHAPE_T_RECT)
-        rect.SetStart(pcbnew.VECTOR2I(0, 0))
-        rect.SetEnd(pcbnew.VECTOR2I(_mm(w), _mm(h)))
-        rect.SetLayer(pcbnew.Edge_Cuts)
+        rect = _pcbnew().PCB_SHAPE(board, _pcbnew().SHAPE_T_RECT)
+        rect.SetStart(_pcbnew().VECTOR2I(0, 0))
+        rect.SetEnd(_pcbnew().VECTOR2I(_mm(w), _mm(h)))
+        rect.SetLayer(_pcbnew().Edge_Cuts)
         rect.SetWidth(_mm(0.1))
         board.Add(rect)
 
@@ -154,17 +163,17 @@ def build_unplaced(
     for i, fp in enumerate(movable):
         x = x0 + (i % cols + 0.5) * w / cols
         y = y0 + (i // cols + 0.5) * h / rows
-        fp.SetPosition(pcbnew.VECTOR2I(_mm(x), _mm(y)))
+        fp.SetPosition(_pcbnew().VECTOR2I(_mm(x), _mm(y)))
 
     for ref, (x, y, rot) in constraints.fixed.items():
-        fps[ref].SetPosition(pcbnew.VECTOR2I(_mm(x), _mm(y)))
+        fps[ref].SetPosition(_pcbnew().VECTOR2I(_mm(x), _mm(y)))
         fps[ref].SetOrientationDegrees(rot)
 
     nets = {}
     for net in netlist.nets:
         item = board.FindNet(net.name)
         if item is None:
-            item = pcbnew.NETINFO_ITEM(board, net.name)
+            item = _pcbnew().NETINFO_ITEM(board, net.name)
             board.Add(item)
         for node in net.nodes:
             nets[node.key] = item
@@ -176,7 +185,7 @@ def build_unplaced(
             else:
                 pad.SetNet(item)
     # ponytail: constraints.classes not written; pcbnew's NET_SETTINGS API is not a few lines.
-    pcbnew.SaveBoard(str(out), board)
+    _pcbnew().SaveBoard(str(out), board)
     return {
         "footprints": len(board.GetFootprints()),
         "nets": len(netlist.nets),
@@ -188,17 +197,17 @@ def build_unplaced(
 def set_positions(
     path_in: Path, positions: dict[str, tuple[float, float, float]], path_out: Path
 ) -> None:
-    board = pcbnew.LoadBoard(str(path_in))
+    board = _pcbnew().LoadBoard(str(path_in))
     for fp in board.GetFootprints():
         pos = positions.get(fp.GetReference())
         if pos is not None:
-            fp.SetPosition(pcbnew.VECTOR2I(_mm(pos[0]), _mm(pos[1])))
+            fp.SetPosition(_pcbnew().VECTOR2I(_mm(pos[0]), _mm(pos[1])))
             fp.SetOrientationDegrees(pos[2])
-    pcbnew.SaveBoard(str(path_out), board)
+    _pcbnew().SaveBoard(str(path_out), board)
 
 
 def unrouted_count(path: Path) -> int:
-    board = pcbnew.LoadBoard(str(path))
+    board = _pcbnew().LoadBoard(str(path))
     board.BuildConnectivity()
     return int(board.GetConnectivity().GetUnconnectedCount(True))
 
@@ -214,8 +223,8 @@ def freerouting_version() -> str:
 
 def route(path_in: Path, path_out: Path) -> dict[str, Any]:
     dsn, ses = path_in.with_suffix(".dsn"), path_in.with_suffix(".ses")
-    board = pcbnew.LoadBoard(str(path_in))
-    if not pcbnew.ExportSpecctraDSN(board, str(dsn)):
+    board = _pcbnew().LoadBoard(str(path_in))
+    if not _pcbnew().ExportSpecctraDSN(board, str(dsn)):
         raise RuntimeError(f"DSN export failed for {path_in}")
     argv = [
         *shlex.split(settings.freerouting_bin),
@@ -238,14 +247,14 @@ def route(path_in: Path, path_out: Path) -> dict[str, Any]:
     seconds = time.monotonic() - started
     if not ses.exists():
         raise RuntimeError(f"Freerouting wrote no SES: {output[-2000:]}")
-    if not pcbnew.ImportSpecctraSES(board, str(ses)):
+    if not _pcbnew().ImportSpecctraSES(board, str(ses)):
         raise RuntimeError(f"SES import failed for {ses}")
     # Freerouting necks down below the board minimum in tight spots; the fab rule wins.
     min_w = board.GetDesignSettings().m_TrackMinWidth
     for t in _items(board.Tracks()):
         if t.GetClass() == "PCB_TRACK" and t.GetWidth() < min_w:
             t.SetWidth(min_w)
-    pcbnew.SaveBoard(str(path_out), board)
+    _pcbnew().SaveBoard(str(path_out), board)
     return {
         "version": freerouting_version(),
         "seconds": round(seconds, 1),

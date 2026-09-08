@@ -18,5 +18,6 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY src ./src
 COPY migrations ./migrations
+COPY golden ./golden
 RUN pip install --no-cache-dir . && mkdir -p /home/kicad/.config && chown -R kicad:kicad /home/kicad
 USER kicad

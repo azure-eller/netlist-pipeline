@@ -101,6 +101,37 @@ impedance (IPC-2141 microstrip), diff-pair length mismatch, decoupling capacitor
 the IC power pin it serves, trace current capacity (IPC-2221) against rail current, crosstalk
 proxy (parallel run length over spacing), via count on high-speed nets, unrouted count.
 
+### Judge versions and approval
+
+A judge version reaches the worker only after it agrees with the golden set.
+
+- **Golden set** `golden/<case>/{board.kicad_pcb, netlist.json, constraints.json,
+  expected.json}`: five boards with expected scorecards, captured once from local runs by
+  `scripts/golden.py --capture` (see `golden/README.md` for what each case is). `expected.json`
+  is `{score, violations: [{rule, net, ref}], totals}` from the reference rule judge. Expected
+  answers are the rule judge's answers, not ground truth: the set catches regressions and
+  disagreements, it does not prove a judge right.
+- **Run** `make golden` (in-process rules judge) or `scripts/golden.py --judge-url URL`
+  (`POST URL/v1/score` per case, bearer `JUDGE_TOKEN`). A remote judge reports itself at
+  `GET URL/v1/info -> {name, version, capabilities}`; a 404 there is treated as capabilities
+  `["score", "violations"]` and version unknown, and is printed as such.
+- **Pass** iff every case's score is within `max(0.5, 10% of |expected|)`; the violation set
+  equals expected on `(rule, net, ref)` when `capabilities` includes `"violations"` (a
+  score-only learned judge is not held to violations); and, always, `pic_cap_far` scores below
+  `pic_human` and `rpi_thin` scores below `rpi_generated`. Every run prints a table and appends
+  one line to `docs/experiments/golden.jsonl` (`{ts, judge, version, judge_url, passed, cases}`);
+  exit 1 on failure.
+- **Approve** `scripts/golden.py [--judge-url URL] --approve` adds `{name, version,
+  approved_at, golden_sha}` to `golden/approved.json`, only when passing. `golden_sha` is the
+  sha256 over all `expected.json` files in path order, so an approval names the set it passed.
+  The rule judge is approved the same way. `--update` rewrites `expected.json` from the current
+  judge; explicit, never automatic.
+- **Gate** with `JUDGE_URL` set, the judge stage calls `GET /v1/info` once per stage and
+  fails the run unless the reported `(name, version)` is in `golden/approved.json` and, when
+  `JUDGE_VERSION` is not `rules`, equals `JUDGE_VERSION`. The error names the offending name and
+  version. The stage records `{name, version}` in its details. The in-process rule judge is the
+  reference and is not gated.
+
 ## Verification (independent of the judge)
 
 Passed iff all of: DRC with schematic parity reports zero errors, excluding silkscreen rules

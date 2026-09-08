@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import httpx
 
@@ -10,11 +11,36 @@ from pipeline import board, judge, models, storage
 from pipeline.config import settings
 from pipeline.stages import Ctx, common, stage
 
+APPROVED = Path(__file__).resolve().parents[3] / "golden" / "approved.json"
+
+
+def _headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {settings.judge_token}"} if settings.judge_token else {}
+
+
+def remote_judge() -> dict[str, str]:
+    """GET JUDGE_URL/v1/info; refuse a version that is not the pinned JUDGE_VERSION or not in
+    golden/approved.json (SPEC.md, "Judge versions and approval")."""
+    r = httpx.get(f"{settings.judge_url}/v1/info", headers=_headers(), timeout=30)
+    r.raise_for_status()
+    name, version = r.json()["name"], r.json()["version"]
+    if settings.judge_version != "rules" and version != settings.judge_version:
+        raise RuntimeError(
+            f"judge {name} {version} at {settings.judge_url} is not the pinned "
+            f"JUDGE_VERSION {settings.judge_version}"
+        )
+    approved = json.loads(APPROVED.read_text()) if APPROVED.exists() else []
+    if not any(a["name"] == name and a["version"] == version for a in approved):
+        raise RuntimeError(
+            f"judge {name} {version} is not in {APPROVED}; "
+            "run scripts/golden.py --judge-url ... --approve"
+        )
+    return {"name": name, "version": version}
+
 
 def _score(run_id: int, text: str, nl: models.Netlist, c: models.Constraints) -> models.JudgeResult:
     if not settings.judge_url:
         return judge.score(board.parse(text), nl, c)
-    headers = {"Authorization": f"Bearer {settings.judge_token}"} if settings.judge_token else {}
     r = httpx.post(
         f"{settings.judge_url}/v1/score",
         json={
@@ -23,7 +49,7 @@ def _score(run_id: int, text: str, nl: models.Netlist, c: models.Constraints) ->
             "constraints": c.to_json(),
             "board_pcb": text,
         },
-        headers=headers,
+        headers=_headers(),
         timeout=120,
     )
     r.raise_for_status()
@@ -37,6 +63,8 @@ def _score(run_id: int, text: str, nl: models.Netlist, c: models.Constraints) ->
 def judge_stage(ctx: Ctx) -> None:
     nl = common.load_netlist(ctx)
     c = common.load_constraints(ctx)
+    if settings.judge_url:
+        ctx.details["judge"] = remote_judge()
     with ctx.conn.cursor() as cur:
         cur.execute(
             "select id, seed, board_key from candidates where run_id = %s order by seed",

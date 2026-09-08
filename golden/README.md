@@ -1,0 +1,18 @@
+# Golden set
+
+Boards with expected scorecards for gating judge versions (SPEC.md, "Judge versions and
+approval"). Built by `scripts/golden.py --capture` from local runs; rerunning overwrites.
+`expected.json` is the rule judge's answer (regression and disagreement, not ground truth).
+
+| case | board | netlist / constraints | expected (rules 0.1.0) |
+|---|---|---|---|
+| `pic_human` | `tests/fixtures/pic_programmer/pic_programmer.kicad_pcb`, the human layout | latest local judge-mode run of pic_programmer | -6.48; 3 decoupling (C1 on VCC, C6 and C7 on VCC_PIC) |
+| `pic_generated` | chosen candidate of local generate run 34 (3 seeds) | same as `pic_human` | -1.20; decoupling C1, current on VCC_PIC |
+| `rpi_generated` | chosen candidate of local generate run 27 (rpi_hat) | run 27 | -3.43; 2 current (+5V, GND) |
+| `pic_cap_far` | `pic_human` with C1 moved 30 mm right of U1 (`pcb.set_positions`) | same as `pic_human` | -16.12; same 3 decoupling, C1 now ~93 mm from the nearest VCC pin. Must score below `pic_human`. |
+| `rpi_thin` | `rpi_generated` with every `+5V` segment width set to 0.15 mm (text edit) | run 27 | -4.99; same 2 current violations, +5V excess larger. Must score below `rpi_generated`. |
+
+Note: C1 already violates decoupling in the human layout (11.8 mm from U3 pin 5 on VCC; U1
+carries no VCC pad), and the one `+5V` segment on the HAT already violates current at 0.2 mm.
+The two mutated cases therefore worsen an existing violation rather than adding one; the
+ordering constraints are what the gate checks.

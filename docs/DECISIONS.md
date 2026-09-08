@@ -44,3 +44,20 @@ gates are DRC with schematic parity and netlist equivalence, which check the thi
 tested locally is what runs. Render has no object storage, so files live in S3; the bucket and
 a least-privilege IAM user come from one CloudFormation template whose outputs include the
 secret, acceptable for a demo account and not for production.
+
+**A golden set with a gate, not a benchmark.** Fifty boards a slow oracle already judged is the
+ideal; we have five boards the rule judge judged, two of them deliberately broken. The gate
+checks agreement within tolerance and, more importantly, ordering: the broken board must score
+worse than its parent. Expected answers from the rule judge catch regressions and disagreement,
+not truth. When an oracle exists (openEMS, bench measurements), the same script takes its
+answers. A judge version gets into the worker only after `--approve` records it.
+
+**The learned judge is a distillation, and says so.** A gradient-boosted regressor trained on
+the rule judge's own scores exists to make versioned serving, artifact loading, `/v1/info`,
+and the gate real. It is not better physics and every artifact carries that note. Building the
+plumbing with a toy is cheaper than waiting for the model, and the plumbing is the job.
+
+**Claude as a placer is an experiment with a row in the table, not a feature.** Nobody has
+shown a language model beats search at placement on real boards. The pipeline can measure it:
+same router, same judge, same verification, a record on disk per proposal. Whatever the table
+says is what gets said on the call.
