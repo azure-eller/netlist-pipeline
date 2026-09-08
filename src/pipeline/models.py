@@ -162,6 +162,7 @@ class Board:
     footprints: tuple[Footprint, ...]
     segments: tuple[Segment, ...]
     vias: tuple[Via, ...]
+    zone_nets: tuple[str, ...] = ()  # nets carried by copper pours
 
     def footprint(self, ref: str) -> Footprint | None:
         return next((f for f in self.footprints if f.ref == ref), None)

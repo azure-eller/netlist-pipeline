@@ -58,6 +58,7 @@ def parse(text: str) -> Board:
             Via(net(v), *_xy(v, "at"), _num(v, "size"), _num(v, "drill"))
             for v in children(root, "via")
         ),
+        zone_nets=tuple(sorted({n for z in children(root, "zone") if (n := net(z))})),
     )
 
 

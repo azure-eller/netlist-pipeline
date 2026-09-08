@@ -248,7 +248,10 @@ def score(board: Board, netlist: Netlist, constraints: Constraints) -> JudgeResu
     unrouted = sorted(
         n.name
         for n in netlist.nets
-        if pad_count[n.name] >= 2 and not segs[n.name] and not vias[n.name]
+        if pad_count[n.name] >= 2
+        and not segs[n.name]
+        and not vias[n.name]
+        and n.name not in board.zone_nets
     )
     for net in unrouted[:20]:
         violations.append(Violation("unrouted", f"{net}: no copper", net=net))
