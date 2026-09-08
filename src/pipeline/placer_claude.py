@@ -13,6 +13,7 @@ from typing import Any
 from claude_agent_sdk import ClaudeAgentOptions, EffortLevel, ResultMessage, query
 
 from pipeline import placer
+from pipeline.config import settings
 from pipeline.models import NET_CLASSES, Board, Constraints, Netlist
 from pipeline.placer import CLEARANCE_MM, Pose
 
@@ -174,12 +175,15 @@ def refine(
     search_positions: dict[str, Pose],
     search_cost: float,
     seed: int,
-    effort: EffortLevel = "high",
+    effort: EffortLevel | None = None,
 ) -> tuple[dict[str, Pose], dict[str, Any]]:
     """(refined positions, JSON record). Raises RuntimeError when Claude gives no layout."""
+    effort = effort or settings.claude_effort  # type: ignore[assignment]
     prompt = build_prompt(board, netlist, constraints, search_positions, search_cost)
     t0 = time.monotonic()
-    result = asyncio.run(_ask(prompt, effort))
+    result = asyncio.run(
+        asyncio.wait_for(_ask(prompt, effort), timeout=settings.claude_timeout_seconds)
+    )
     seconds = time.monotonic() - t0
     if result.subtype != "success" or result.structured_output is None:
         raise RuntimeError(
