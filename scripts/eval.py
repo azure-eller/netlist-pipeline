@@ -18,7 +18,7 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 API = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
-SEEDS = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+SEEDS = int(sys.argv[2]) if len(sys.argv) > 2 else 3
 
 
 def zip_dir(d: Path) -> bytes:

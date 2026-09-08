@@ -56,7 +56,19 @@ def judge_stage(ctx: Ctx) -> None:
                 "update candidates set score = %s, metrics = %s where id = %s",
                 (res.score, json.dumps(res.metrics), cid),
             )
-        best_id, best_seed, best_text, best = max(scored, key=lambda r: r[3].score)
+        # The router reported unrouted connections per seed; a candidate with any is never
+        # chosen over a fully routed one (the judge only sees nets with no copper at all).
+        cur.execute(
+            "select details from stages where run_id = %s and name = 'route' and status = 'done' "
+            "order by id desc limit 1",
+            (ctx.run_id,),
+        )
+        row = cur.fetchone()
+        unrouted = {
+            int(k): v["unrouted"] for k, v in (row[0] if row else {}).items() if k.isdigit()
+        }
+        routed = [r for r in scored if unrouted.get(r[1], 0) == 0] or scored
+        best_id, best_seed, best_text, best = max(routed, key=lambda r: r[3].score)
         cur.execute(
             "update candidates set chosen = (id = %s) where run_id = %s", (best_id, ctx.run_id)
         )

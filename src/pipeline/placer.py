@@ -22,7 +22,7 @@ WEIGHTS = {
     "overlap": 50.0,
     "oob": 50.0,
 }
-CLEARANCE_MM = 0.5  # courtyard-to-courtyard gap so silkscreen and solder mask never touch
+CLEARANCE_MM = 1.0  # courtyard-to-courtyard gap so silkscreen and solder mask never touch
 
 
 def _grow(b: BBox, d: float) -> BBox:
