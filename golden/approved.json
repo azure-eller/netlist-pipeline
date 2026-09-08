@@ -1,8 +1,14 @@
 [
   {
+    "name": "learned-fd",
+    "version": "v5",
+    "approved_at": "2026-09-08T07:04:06+00:00",
+    "golden_sha": "27861b533b97a2333ac82cb187fd297ba715850ae0e2a335ee14a5f7ec8fc6da"
+  },
+  {
     "name": "rules",
     "version": "0.1.0",
-    "approved_at": "2026-09-08T05:28:32+00:00",
-    "golden_sha": "9e6cc4369038c1ad6a36bdc1b12d13a1043f1212598ee48b125d63ff30613678"
+    "approved_at": "2026-09-08T07:05:07+00:00",
+    "golden_sha": "27861b533b97a2333ac82cb187fd297ba715850ae0e2a335ee14a5f7ec8fc6da"
   }
 ]

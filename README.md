@@ -127,6 +127,28 @@ against five boards with expected scorecards, two of them deliberately broken, a
 Three distilled learned judges were trained and all three were refused, correctly, on the
 broken-capacitor case; the record is in [docs/experiments](docs/experiments/README.md).
 
+## The physics pipeline: oracle, data, surrogate
+
+The judge's rules are fixed; where its impedance numbers come from is a provider. Three exist:
+
+| provider | what | speed | gate |
+|---|---|---|---|
+| `rules 0.1.0` | IPC-2141 closed form, the original reference | microseconds | passes |
+| `oracle-fd fd2d-0.1` | our own 2D quasi-static field solver on the trace cross-section (`pipeline/fields.py`), within 1% of the Hammerstad closed form | 0.36 s per geometry | is the truth |
+| `learned-fd v5` | gradient boosting trained on 5,000 oracle-solved geometries | microseconds | passes |
+
+The data pipeline is the same queue that builds boards: `make dataset SHARDS=4 N=1250` samples
+cross-sections from ranges seen on real boards, solves them in shard jobs, and writes hashed
+JSONL shards plus a manifest naming sampler version, solver version and seed. `make
+train-surrogate DATASET=17 VERSION=v5` trains, scores held-out and fresh oracle-solved
+geometries, uploads a versioned artifact and records it in the `models` table. The golden
+set's expected answers come from the oracle; a surrogate is approved only if it agrees.
+
+Surrogate v5 on 200 fresh geometries the oracle solved after training: 0.90% mean error on
+single-trace impedance (p95 2.4%), 2.1% and 1.7% on odd and even mode impedance. Full record
+in [docs/experiments/surrogate-v5.md](docs/experiments/surrogate-v5.md) and
+[docs/DATA.md](docs/DATA.md).
+
 ## Deploy
 
 `render.yaml` describes the hosted layout: `netlist-api` (web, free tier), `netlist-worker`
