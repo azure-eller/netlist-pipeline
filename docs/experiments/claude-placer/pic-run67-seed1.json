@@ -1,0 +1,450 @@
+{
+ "model": "claude-fable-5-1",
+ "effort": "low",
+ "seed": 1,
+ "prompt_chars": 9224,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 9455,
+  "cache_read_input_tokens": 40803,
+  "output_tokens": 14830,
+  "output_tokens_details": {
+   "thinking_tokens": 12912
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 9455,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "not_available",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 14830,
+    "cache_read_input_tokens": 40803,
+    "cache_creation_input_tokens": 9455,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 9455
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard"
+ },
+ "num_turns": 2,
+ "total_cost_usd": 0.9408207499999999,
+ "seconds": 184.54804739099927,
+ "output": {
+  "positions": [
+   {
+    "ref": "P3",
+    "x": 118,
+    "y": 67.01,
+    "rot": 0
+   },
+   {
+    "ref": "C3",
+    "x": 92,
+    "y": 54,
+    "rot": 0
+   },
+   {
+    "ref": "L1",
+    "x": 99,
+    "y": 63,
+    "rot": 180
+   },
+   {
+    "ref": "R10",
+    "x": 86,
+    "y": 66,
+    "rot": 0
+   },
+   {
+    "ref": "U4",
+    "x": 90,
+    "y": 78,
+    "rot": 270
+   },
+   {
+    "ref": "D10",
+    "x": 99,
+    "y": 76,
+    "rot": 270
+   },
+   {
+    "ref": "C5",
+    "x": 78,
+    "y": 75,
+    "rot": 90
+   },
+   {
+    "ref": "C1",
+    "x": 90,
+    "y": 88.5,
+    "rot": 0
+   },
+   {
+    "ref": "C4",
+    "x": 78,
+    "y": 96,
+    "rot": 0
+   },
+   {
+    "ref": "R16",
+    "x": 93,
+    "y": 97,
+    "rot": 0
+   },
+   {
+    "ref": "R15",
+    "x": 93,
+    "y": 102,
+    "rot": 0
+   },
+   {
+    "ref": "RV1",
+    "x": 79,
+    "y": 107,
+    "rot": 90
+   },
+   {
+    "ref": "C9",
+    "x": 144,
+    "y": 71,
+    "rot": 90
+   },
+   {
+    "ref": "R7",
+    "x": 150,
+    "y": 62,
+    "rot": 0
+   },
+   {
+    "ref": "Q2",
+    "x": 150,
+    "y": 70,
+    "rot": 0
+   },
+   {
+    "ref": "R11",
+    "x": 150,
+    "y": 77,
+    "rot": 0
+   },
+   {
+    "ref": "R8",
+    "x": 164,
+    "y": 62,
+    "rot": 0
+   },
+   {
+    "ref": "Q1",
+    "x": 162,
+    "y": 70,
+    "rot": 0
+   },
+   {
+    "ref": "D11",
+    "x": 163,
+    "y": 77,
+    "rot": 0
+   },
+   {
+    "ref": "R17",
+    "x": 174,
+    "y": 66,
+    "rot": 90
+   },
+   {
+    "ref": "R18",
+    "x": 179,
+    "y": 66,
+    "rot": 90
+   },
+   {
+    "ref": "R9",
+    "x": 184,
+    "y": 66,
+    "rot": 90
+   },
+   {
+    "ref": "D8",
+    "x": 184,
+    "y": 55.5,
+    "rot": 0
+   },
+   {
+    "ref": "JP1",
+    "x": 189,
+    "y": 71,
+    "rot": 90
+   },
+   {
+    "ref": "U5",
+    "x": 152,
+    "y": 95,
+    "rot": 0
+   },
+   {
+    "ref": "U1",
+    "x": 166,
+    "y": 86,
+    "rot": 0
+   },
+   {
+    "ref": "U6",
+    "x": 166,
+    "y": 100,
+    "rot": 0
+   },
+   {
+    "ref": "C7",
+    "x": 175,
+    "y": 86,
+    "rot": 90
+   },
+   {
+    "ref": "C6",
+    "x": 175,
+    "y": 100,
+    "rot": 90
+   },
+   {
+    "ref": "P2",
+    "x": 161,
+    "y": 120,
+    "rot": 90
+   },
+   {
+    "ref": "D4",
+    "x": 180,
+    "y": 80,
+    "rot": 90
+   },
+   {
+    "ref": "D5",
+    "x": 180,
+    "y": 92,
+    "rot": 90
+   },
+   {
+    "ref": "D7",
+    "x": 180,
+    "y": 104,
+    "rot": 90
+   },
+   {
+    "ref": "D2",
+    "x": 185,
+    "y": 80,
+    "rot": 90
+   },
+   {
+    "ref": "D3",
+    "x": 185,
+    "y": 92,
+    "rot": 90
+   },
+   {
+    "ref": "D6",
+    "x": 185,
+    "y": 104,
+    "rot": 90
+   },
+   {
+    "ref": "R2",
+    "x": 190,
+    "y": 82,
+    "rot": 90
+   },
+   {
+    "ref": "R4",
+    "x": 190,
+    "y": 97,
+    "rot": 90
+   },
+   {
+    "ref": "R6",
+    "x": 190,
+    "y": 112,
+    "rot": 90
+   },
+   {
+    "ref": "R1",
+    "x": 195,
+    "y": 82,
+    "rot": 90
+   },
+   {
+    "ref": "R3",
+    "x": 195,
+    "y": 97,
+    "rot": 90
+   },
+   {
+    "ref": "R5",
+    "x": 195,
+    "y": 112,
+    "rot": 90
+   },
+   {
+    "ref": "U2",
+    "x": 204,
+    "y": 90,
+    "rot": 0
+   },
+   {
+    "ref": "R12",
+    "x": 204,
+    "y": 106,
+    "rot": 0
+   },
+   {
+    "ref": "R13",
+    "x": 204,
+    "y": 111,
+    "rot": 0
+   },
+   {
+    "ref": "J1",
+    "x": 222,
+    "y": 89,
+    "rot": 90
+   },
+   {
+    "ref": "C2",
+    "x": 210,
+    "y": 45.5,
+    "rot": 0
+   },
+   {
+    "ref": "P1",
+    "x": 197,
+    "y": 58,
+    "rot": 0
+   },
+   {
+    "ref": "D1",
+    "x": 206,
+    "y": 58,
+    "rot": 270
+   },
+   {
+    "ref": "U3",
+    "x": 214,
+    "y": 61,
+    "rot": 0
+   },
+   {
+    "ref": "Q3",
+    "x": 205,
+    "y": 118,
+    "rot": 0
+   },
+   {
+    "ref": "R20",
+    "x": 205,
+    "y": 124,
+    "rot": 0
+   },
+   {
+    "ref": "R19",
+    "x": 205,
+    "y": 129,
+    "rot": 0
+   },
+   {
+    "ref": "R21",
+    "x": 216,
+    "y": 121,
+    "rot": 90
+   },
+   {
+    "ref": "D12",
+    "x": 216,
+    "y": 132,
+    "rot": 0
+   },
+   {
+    "ref": "D9",
+    "x": 224,
+    "y": 110,
+    "rot": 0
+   },
+   {
+    "ref": "R14",
+    "x": 222,
+    "y": 121,
+    "rot": 90
+   }
+  ],
+  "rationale": "Kept P3 (40-pin socket, unknown courtyard origin) where the annealer left it and organized everything else into functional clusters around it. Left of P3: LT1373 boost converter (U4, L1, D10, C3, R10, C5, C4, RV1, R15, R16) with C1 placed directly under U4 so its VCC pin is ~11 mm away (was 18). Right of P3, top band: VPP switch (Q2, R7, C9, R11, Q1, D11, R8, R17/R18/R9, D8) sitting directly above the PIC sockets it drives; top-right corner: power entry P1 -> D1 -> C2 -> 7805 as a straight short chain. Middle: U5/U1/U6 socket group with C6/C7 within ~5 mm of U1.8 on VCC_PIC, P2 below them. Serial front end laid out as a pipeline J1 -> R1..R6 columns -> D2..D7 columns -> U2 -> R12/R13 -> sockets, DB9 kept on the right board edge. VCC_PIC switch (Q3, R19, R20, JP1, R21/D12, R14/D9) in the bottom-right pocket between P2 and the mounting hole. All courtyards checked pairwise for >=1 mm spacing and clearance from the six fixed holes and the outline; only 0/90/180/270 rotations used."
+ },
+ "moved": [
+  "C1",
+  "C2",
+  "C3",
+  "C4",
+  "C5",
+  "C6",
+  "C7",
+  "C9",
+  "D1",
+  "D10",
+  "D11",
+  "D12",
+  "D2",
+  "D3",
+  "D4",
+  "D5",
+  "D6",
+  "D7",
+  "D8",
+  "D9",
+  "J1",
+  "JP1",
+  "L1",
+  "P1",
+  "P2",
+  "Q1",
+  "Q2",
+  "Q3",
+  "R1",
+  "R10",
+  "R11",
+  "R12",
+  "R13",
+  "R14",
+  "R15",
+  "R16",
+  "R17",
+  "R18",
+  "R19",
+  "R2",
+  "R20",
+  "R21",
+  "R3",
+  "R4",
+  "R5",
+  "R6",
+  "R7",
+  "R8",
+  "R9",
+  "RV1",
+  "U1",
+  "U2",
+  "U3",
+  "U4",
+  "U5",
+  "U6"
+ ],
+ "rejected": [],
+ "search_cost": 5306.325556085462,
+ "refined_cost": 36778.545773261496
+}
