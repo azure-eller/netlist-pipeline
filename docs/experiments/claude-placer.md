@@ -65,7 +65,14 @@ Same router (Freerouting, 20 passes), same rule judge, same verification as the 
 
 ### pic_programmer (63 parts)
 
-Effort high was abandoned: one seed ran past 23 minutes without returning (killed; run 61).
-The medium-effort run with a 20-minute cap per seed is run 65; rows below when it lands.
+| effort | seeds | cap per seed | outcome | run |
+|---|---|---|---|---|
+| high | 3 | none | seed 1 still generating after 23 min; killed | 61 |
+| medium | 3 | 20 min | seed 1 hit the cap; stage failed with TimeoutError | 66 |
+| low | 1 | 20 min | see below | 67 |
+
+The prompt for this board is 9.2k characters (63 movable parts, 111 nets; the small board is 2.3k). At high and medium
+effort the model had not returned a structured layout within the cap. The record of each
+attempt is the run's stage rows; no proposal file exists because none was produced.
 
 ### Verdict
