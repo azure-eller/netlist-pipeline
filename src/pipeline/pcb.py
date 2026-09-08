@@ -29,11 +29,15 @@ def _mm(v: float) -> int:
 
 
 COPPER_BLOCKS = ("segment", "arc", "via", "zone")
+# old layout graphics: silkscreen art and text belong to the previous layout, not the outline
+GRAPHIC_BLOCKS = ("gr_text", "gr_text_box", "dimension", "image", "target")
+EDGE_GRAPHICS = ("gr_line", "gr_rect", "gr_circle", "gr_arc", "gr_poly")
 
 
 def strip_copper(text: str) -> str:
-    """Drop top-level (segment|arc|via|zone ...) blocks from .kicad_pcb text, byte-exact
-    otherwise. Walks parens, skipping quoted strings."""
+    """Drop the previous layout from .kicad_pcb text: copper (segment|arc|via|zone), text and
+    images, and drawings not on Edge.Cuts. Byte-exact otherwise. Walks parens, skipping
+    quoted strings."""
     out: list[str] = []
     i, n, depth = 0, len(text), 0
     while i < n:
@@ -47,7 +51,7 @@ def strip_copper(text: str) -> str:
             continue
         if c == "(" and depth == 1:
             head = text[i + 1 : i + 12].split()[0] if text[i + 1 : i + 12].split() else ""
-            if head in COPPER_BLOCKS:
+            if head in COPPER_BLOCKS or head in GRAPHIC_BLOCKS or head in EDGE_GRAPHICS:
                 d, j = 0, i
                 while True:  # find the matching close paren
                     ch = text[j]
@@ -62,6 +66,11 @@ def strip_copper(text: str) -> str:
                         if d == 0:
                             break
                     j += 1
+                block = text[i : j + 1]
+                if head in EDGE_GRAPHICS and '(layer "Edge.Cuts")' in block:
+                    out.append(block)  # the outline stays
+                    i = j + 1
+                    continue
                 i = j + 1
                 while i < n and text[i] in " \t\n":
                     i += 1
@@ -100,9 +109,11 @@ def build_unplaced(
     if template:
         # Strip copper in the text, not through pcbnew: removing hundreds of tracks via
         # board.Remove() segfaults the SWIG bindings.
-        stripped = out.with_name("template_stripped.kicad_pcb")
-        stripped.write_text(strip_copper(template.read_text()))
-        board = pcbnew.LoadBoard(str(stripped))
+        # Overwrite the (temp) upload copy in place so pcbnew finds the .kicad_pro next to it:
+        # net classes (track width, clearance, via size) live in the project file, and the
+        # router must see the board's rules, not KiCad defaults.
+        template.write_text(strip_copper(template.read_text()))
+        board = pcbnew.LoadBoard(str(template))
     else:
         board = pcbnew.BOARD()
     fps = {fp.GetReference(): fp for fp in board.GetFootprints()}

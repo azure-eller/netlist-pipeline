@@ -105,8 +105,9 @@ def test_strip_copper_removes_tracks_vias_zones_and_keeps_footprints() -> None:
 
     src = (FIXTURES / "pic_programmer" / "pic_programmer.kicad_pcb").read_text()
     out = strip_copper(src)
-    for block in ("(segment", "(via", "(zone\n", "(arc"):
+    for block in ("(segment", "(via", "(zone\n", "(arc", "(gr_text"):
         assert block not in out.replace("(zone_connect", "")
+    assert '(layer "Edge.Cuts")' in out
     assert out.count("(footprint") == src.count("(footprint")
     path = Path(tempfile.mkdtemp()) / "stripped.kicad_pcb"
     path.write_text(out)

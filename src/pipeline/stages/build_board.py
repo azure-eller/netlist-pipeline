@@ -32,6 +32,11 @@ def build_board(ctx: Ctx) -> None:
         out = u.dir / "unplaced.kicad_pcb"
         ctx.details = pcb.build_unplaced(nl, c, u.pcb, out)
         data = out.read_bytes()
+        # SaveBoard wrote the project (net classes: widths, clearances, vias) next to the
+        # board; later stages put it beside every board copy so pcbnew and the router see it.
+        storage.put(
+            common.run_key(ctx, "project.kicad_pro"), out.with_suffix(".kicad_pro").read_bytes()
+        )
         storage.put(common.run_key(ctx, "unplaced.kicad_pcb"), data)
         source = u.pcb.read_bytes() if u.pcb else json.dumps(nl.to_json()).encode()
         ctx.provenance("pcbnew", pcbnew.GetBuildVersion(), storage.sha256(source))

@@ -28,8 +28,10 @@ def route(ctx: Ctx) -> None:
         raise RuntimeError("no candidates to route (place stage has not run)")
     d = Path(tempfile.mkdtemp(prefix=f"run{ctx.run_id}-route-"))
     placed = {seed: d / f"placed{seed}.kicad_pcb" for _, seed, _ in rows}
+    project = storage.get(common.run_key(ctx, "project.kicad_pro"))
     for _, seed, key in rows:
         placed[seed].write_bytes(storage.get(key))
+        placed[seed].with_suffix(".kicad_pro").write_bytes(project)  # rules for the DSN export
     ctx.provenance(
         "freerouting", pcb.freerouting_version(), storage.sha256(placed[rows[0][1]].read_bytes())
     )
