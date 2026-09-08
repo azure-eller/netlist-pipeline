@@ -178,11 +178,11 @@ def refine(
     effort: EffortLevel | None = None,
 ) -> tuple[dict[str, Pose], dict[str, Any]]:
     """(refined positions, JSON record). Raises RuntimeError when Claude gives no layout."""
-    effort = effort or settings.claude_effort  # type: ignore[assignment]
+    level: EffortLevel = effort or settings.claude_effort  # type: ignore[assignment]
     prompt = build_prompt(board, netlist, constraints, search_positions, search_cost)
     t0 = time.monotonic()
     result = asyncio.run(
-        asyncio.wait_for(_ask(prompt, effort), timeout=settings.claude_timeout_seconds)
+        asyncio.wait_for(_ask(prompt, level), timeout=settings.claude_timeout_seconds)
     )
     seconds = time.monotonic() - t0
     if result.subtype != "success" or result.structured_output is None:
@@ -195,7 +195,7 @@ def refine(
     proposed = [str(p.get("ref")) for p in proposal.get("positions", [])]
     record = {
         "model": MODEL,
-        "effort": effort,
+        "effort": level,
         "seed": seed,
         "prompt_chars": len(prompt),
         "usage": result.usage,
