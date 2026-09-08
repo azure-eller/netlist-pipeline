@@ -177,6 +177,37 @@ set's expected answers from the oracle. A surrogate is approved only if it agree
 oracle on those boards within tolerance; the closed form is measured against the oracle the
 same way.
 
+## Data factory (docs/FACTORY.md)
+
+Where a physics model's labels come from. Step 1 is in place; the roadmap and status lines
+live in `docs/FACTORY.md` and move in the same change as the code.
+
+**Window** (`pipeline/windows.py`, `WINDOW_VERSION`): one net plus everything within
+`radius_mm` (5) of the midpoint of its longest segment, with the board's copper layers and
+stackup. Contents: every segment meeting the box (clipped to it, net kept), every via and
+copper pad meeting it, every copper pour's outline clipped to it (fills are not stored in
+KiCad 10 files; the outline counts as filled). Coordinates are re-origined at the box corner
+and rounded to 1 µm; `geometry_hash` is the sha256 of the canonical JSON without the origin,
+so the same local geometry anywhere on any board hashes the same. Orientation is not
+normalized.
+
+**Cut**: at points every 1 mm along the target net's segments (at least 3 per net), the line
+perpendicular to the segment: every conductor on that layer the line crosses as
+`(offset, width, net)` with the target at offset 0 (same-net overlaps such as a segment ending
+in its pad merge), `plane_below` / `plane_above` (a pour on the adjacent copper layer contains
+the point), and `h`, `t`, `er` from the stackup (one dielectric height for every layer).
+
+**Label** (step 1): the target conductor alone, `fields.solve(Geometry(w, h, t, er))` when a
+plane is present on either adjacent layer; `None` otherwise (no reference, no characteristic
+impedance). Neighbours are recorded, not yet solved.
+
+**Tables**: `boards` (source, path, sha256 unique, object key `boards/<sha>.kicad_pcb`,
+family = split unit, layers, nets with copper, stackup) and `windows` (board, net, radius,
+window version, geometry hash unique, object key `windows/<hash>.json` holding window, cuts
+and labels, conductor and cut counts, labels with per-cut params and `z0_mean/min/max` over
+cuts with a plane, solver version, seconds). Job `data:windows {board_id}` makes one window
+per net with copper and skips hashes already stored, so rerunning inserts nothing.
+
 ## Verification (independent of the judge)
 
 Passed iff all of: DRC with schematic parity reports zero errors, excluding silkscreen rules

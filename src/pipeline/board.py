@@ -7,10 +7,8 @@ import math
 from collections.abc import Callable
 
 from pipeline import sexpr
-from pipeline.models import BBox, Board, Footprint, Pad, Segment, Stackup, Via
+from pipeline.models import BBox, Board, Footprint, Pad, Point, Segment, Stackup, Via, Zone
 from pipeline.sexpr import SExpr, child, children, value
-
-Point = tuple[float, float]
 
 
 def parse(text: str) -> Board:
@@ -58,7 +56,12 @@ def parse(text: str) -> Board:
             Via(net(v), *_xy(v, "at"), _num(v, "size"), _num(v, "drill"))
             for v in children(root, "via")
         ),
-        zone_nets=tuple(sorted({n for z in children(root, "zone") if (n := net(z))})),
+        zones=tuple(
+            Zone(net(z), str(value(z, "layer") or ""), tuple(_points(poly)))
+            for z in children(root, "zone")
+            if child(z, "keepout") is None
+            for poly in children(z, "polygon")
+        ),
     )
 
 

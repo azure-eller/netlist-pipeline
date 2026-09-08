@@ -73,6 +73,33 @@ a new dataset.
 with the hashes verified, and fits on `geometry -> params`. The `models` row it writes carries
 `dataset_id`, closing the chain artifact -> dataset -> sampler/solver versions and seed.
 
+## Windows (docs/FACTORY.md step 1)
+
+The second kind of data: real board geometry instead of sampled parameters. `scripts/factory.py
+add-board` uploads a `.kicad_pcb` and inserts a `boards` row; `data:windows` jobs cut one
+window per net with copper and label every cut with the solver above on the target conductor.
+`scripts/factory.py show HASH` prints a window's cuts:
+
+```
+   x      y   layer  target_w  plane  z0      neighbours (offset:width:net)
+  5.00   0.50  F.Cu      0.500  B       106.7  +4.39:0.71:/CLOCK-RB6
+  5.00   4.50  F.Cu      0.500  B       106.7  +2.54:1.60:/pic_sockets/VCC_PIC
+```
+
+First run, 2026-09-08, three boards we already had:
+
+| board | nets with copper | windows | cuts | cuts with a reference plane |
+|---|---|---|---|---|
+| pic_programmer (human routed) | 33 | 33 | 335 | 46 |
+| pic_generated (our pipeline) | 34 | 34 | 351 | 0 |
+| rpi_generated (our pipeline) | 6 | 6 | 69 | 0 |
+
+The zeros are a finding, not a bug: boards our own pipeline generates carry no ground pour, so
+no trace on them has a reference plane, while the judge's impedance rule assumes one at the
+stackup's dielectric height. The window sees the geometry the rule guessed at. Adding a pour
+in `build_board` is a follow-up; the human-routed board's front-side traces over its back-side
+pour label as expected.
+
 ## Caveat
 
 The oracle is a 2D quasi-static finite-difference solver: it gives the per-length capacitance

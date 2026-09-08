@@ -23,6 +23,8 @@ and change it in the same change when behavior changes.
 - A pre-existing bug the task doesn't mention is a follow-up, not a fix in the same change.
   Where the task is ambiguous, implement the reading the spec most directly supports and state
   the assumption. No abstractions, config, or error handling for scenarios that cannot happen.
+- Factory work (`windows.py`, `data.py`, `scripts/factory.py`, harvest, tiers, models on
+  windows): read `docs/FACTORY.md` first and update its status lines in the same change.
 - Commit tests only for stated behaviors, one focused test each, next to the existing ones.
 
 ## Layout

@@ -18,7 +18,7 @@ from typing import Any
 
 import psycopg
 
-from pipeline import fields, jobs, log, storage
+from pipeline import board, fields, jobs, log, storage, windows
 
 logger = log.get("data")
 
@@ -55,6 +55,9 @@ def _solve_one(g: fields.Geometry) -> tuple[dict[str, Any], float]:
 
 
 def run_job(conn: psycopg.Connection, job: jobs.Job) -> None:
+    if job.kind == "data:windows":
+        run_windows(conn, int(job.payload["board_id"]))
+        return
     if job.kind != "data:shard":
         raise NotImplementedError(job.kind)
     dataset_id, shard = int(job.payload["dataset_id"]), int(job.payload["shard"])
@@ -176,3 +179,76 @@ def load(dataset: int | str) -> list[dict[str, Any]]:
             raise ValueError(f"{shard['object_key']}: sha256 mismatch")
         samples.extend(json.loads(line) for line in data.decode().splitlines() if line)
     return samples
+
+
+# ---- windows (docs/FACTORY.md step 1) ----
+
+
+def _label_window(
+    w: windows.Window,
+) -> tuple[list[windows.Cut], list[dict[str, Any] | None], float]:
+    t0 = time.perf_counter()
+    cuts = windows.cuts(w)
+    params = [windows.label(c) for c in cuts]
+    return cuts, [asdict(p) if p else None for p in params], time.perf_counter() - t0
+
+
+def run_windows(conn: psycopg.Connection, board_id: int) -> int:
+    """One window per net with copper on the board; windows whose geometry is already stored
+    are skipped, so rerunning is free. Returns the number inserted."""
+    with conn.cursor() as cur:
+        cur.execute("select object_key from boards where id = %s", (board_id,))
+        row = cur.fetchone()
+    if row is None:
+        raise ValueError(f"board {board_id} not found")
+    b = board.parse(storage.get(row[0]).decode())
+    nets = sorted({s.net for s in b.segments if s.net})
+    ws = [windows.extract(b, n) for n in nets]
+    with conn.cursor() as cur:
+        cur.execute(
+            "select geometry_hash from windows where geometry_hash = any(%s)",
+            ([w.geometry_hash for w in ws],),
+        )
+        seen = {r[0] for r in cur.fetchall()}
+    fresh = [w for w in ws if w.geometry_hash not in seen]
+    if not fresh:
+        logger.info("windows_done", board_id=board_id, inserted=0, skipped=len(ws))
+        return 0
+    with Pool(min(os.cpu_count() or 1, len(fresh))) as pool:
+        results = pool.map(_label_window, fresh)
+    with conn.cursor() as cur:
+        for w, (cuts, params, seconds) in zip(fresh, results, strict=True):
+            lps = [fields.LineParams(**p) if p else None for p in params]
+            labels = {"cuts": params, **windows.aggregate(lps)}
+            record = {
+                "window": w.to_json(),
+                "cuts": [asdict(c) for c in cuts],
+                "labels": labels,
+                "board_id": board_id,
+                "solver": fields.SOLVER_VERSION,
+                "seconds": seconds,
+            }
+            key = storage.put(
+                f"windows/{w.geometry_hash}.json", json.dumps(record).encode(), "application/json"
+            )
+            cur.execute(
+                "insert into windows (board_id, net, radius_mm, window_version, geometry_hash, "
+                "object_key, n_conductors, n_cuts, labels, solver_version, seconds) "
+                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    board_id,
+                    w.net,
+                    w.radius_mm,
+                    windows.WINDOW_VERSION,
+                    w.geometry_hash,
+                    key,
+                    len(w.segments) + len(w.vias) + len(w.pads),
+                    len(cuts),
+                    json.dumps(labels),
+                    fields.SOLVER_VERSION,
+                    seconds,
+                ),
+            )
+    conn.commit()
+    logger.info("windows_done", board_id=board_id, inserted=len(fresh), skipped=len(seen))
+    return len(fresh)

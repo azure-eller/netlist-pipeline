@@ -154,6 +154,16 @@ class Via:
     drill: float
 
 
+Point = tuple[float, float]
+
+
+@dataclass(frozen=True)
+class Zone:
+    net: str | None
+    layer: str
+    polygon: tuple[Point, ...]  # the drawn outline; fills are not stored in KiCad 10 files
+
+
 @dataclass(frozen=True)
 class Board:
     outline: BBox  # bbox of Edge.Cuts
@@ -162,7 +172,11 @@ class Board:
     footprints: tuple[Footprint, ...]
     segments: tuple[Segment, ...]
     vias: tuple[Via, ...]
-    zone_nets: tuple[str, ...] = ()  # nets carried by copper pours
+    zones: tuple[Zone, ...] = ()  # copper pours (keepouts excluded)
+
+    @property
+    def zone_nets(self) -> tuple[str, ...]:
+        return tuple(sorted({z.net for z in self.zones if z.net}))
 
     def footprint(self, ref: str) -> Footprint | None:
         return next((f for f in self.footprints if f.ref == ref), None)

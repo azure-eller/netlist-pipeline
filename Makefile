@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 export PYTHONPATH := src
 
-.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge dataset train-surrogate build
+.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge dataset train-surrogate factory-windows build
 
 up:            ## start Postgres + MinIO
 	docker compose up -d postgres minio
@@ -33,6 +33,9 @@ dataset:        ## make dataset SHARDS=4 N=1250 : solve synthetic cross-sections
 
 train-surrogate: ## make train-surrogate DATASET=<id> VERSION=v5
 	$(PY) scripts/train_surrogate.py --dataset $(DATASET) --version $(or $(VERSION),v5)
+
+factory-windows: ## window every board in `boards` through the queue (docs/FACTORY.md)
+	$(PY) scripts/factory.py windows --all --wait
 
 lint:
 	.venv/bin/ruff format --check src tests scripts && .venv/bin/ruff check src tests scripts

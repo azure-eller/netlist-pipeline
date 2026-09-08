@@ -149,6 +149,17 @@ single-trace impedance (p95 2.4%), 2.1% and 1.7% on odd and even mode impedance.
 in [docs/experiments/surrogate-v5.md](docs/experiments/surrogate-v5.md) and
 [docs/DATA.md](docs/DATA.md).
 
+## The data factory
+
+Where a geometry model's labels would come from ([docs/FACTORY.md](docs/FACTORY.md) is the
+roadmap with status lines). The unit is the window: one net plus everything within 5 mm, with
+the stackup, re-origined and content-hashed. `scripts/factory.py add-board` registers a board,
+`make factory-windows` cuts every board into windows through the queue, and each window's
+perpendicular cross-sections (every conductor the cut crosses, whether a pour sits on the
+adjacent layer) are labelled with the field solver. Step 1 labels the target conductor alone;
+the general solver, real boards from GitHub, fidelity tiers, edit pairs, frozen datasets, and
+the FNO are the next steps in that file.
+
 ## Deploy
 
 `render.yaml` describes the hosted layout: `netlist-api` (web, free tier), `netlist-worker`
