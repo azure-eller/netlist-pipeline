@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import time
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -43,22 +44,28 @@ def zip_dir(d: Path, drop: set[str] = frozenset()) -> bytes:  # type: ignore[ass
     return buf.getvalue()
 
 
-def drain(run_id: int) -> None:
-    """Run queued jobs until the run reaches a terminal status."""
+def drain(run_id: int, timeout: float = 900) -> None:
+    """Run queued jobs until the run reaches a terminal status. Tolerates a worker process
+    claiming jobs alongside the test."""
+    deadline = time.monotonic() + timeout
     with db.connect() as conn:
-        for _ in range(50):
+        while time.monotonic() < deadline:
+            with conn.cursor() as cur:
+                cur.execute("select status from runs where id = %s", (run_id,))
+                status = cur.fetchone()[0]  # type: ignore[index]
+            if status in ("done", "failed", "failed_verification"):
+                return
             job = jobs.claim(conn)
             if job is None:
-                break
+                time.sleep(1)
+                continue
             try:
                 stages.run(conn, job)
             except Exception as e:  # noqa: BLE001
                 jobs.finish(conn, job, error=str(e))
-                break
+                continue
             jobs.finish(conn, job)
-        with conn.cursor() as cur:
-            cur.execute("select status from runs where id = %s", (run_id,))
-            assert cur.fetchone()[0] in ("done", "failed", "failed_verification")  # type: ignore[index]
+    raise AssertionError(f"run {run_id} still {status} after {timeout}s")
 
 
 def upload(client: TestClient, name: str, data: bytes, **params: Any) -> dict[str, Any]:

@@ -133,6 +133,20 @@ aws cloudformation deploy --region us-west-2 --stack-name netlist-pipeline \
 Live API: https://netlist-api-ivqr.onrender.com/healthz (free tier sleeps when idle; first
 request after sleep takes about thirty seconds).
 
+## Eval
+
+`make eval` runs the fixtures both ways and writes [docs/EVAL.md](docs/EVAL.md):
+
+| fixture / config | verified | score | track mm | seconds |
+|---|---|---|---|---|
+| pic_programmer, human layout (judge mode) | yes | -6.48 | 1746 | 9 |
+| pic_programmer, search x3 (generate mode) | yes | -1.20 | 3023 | 244 |
+| rpi_hat, search x3 (generate mode) | yes | -3.43 | 150 | 24 |
+
+Search beats the human layout on the rule judge while using 73% more copper. The judge does
+not charge for wire length; a physics model would. That gap is the point of the slot, and the
+table is how a replacement judge gets measured.
+
 ## What is and is not here
 
 - [SPEC.md](SPEC.md) is the contract: stages, constraints format, judge contract, invariants,
