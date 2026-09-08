@@ -28,7 +28,7 @@ files cannot (see Constraints).
 
 | # | Stage | Reads | Writes | Tool of record |
 |---|---|---|---|---|
-| 1 | extract_netlist | upload | `runs/<id>/netlist.json`; `components`, `nets`, `net_nodes` rows | `kicad-cli sch erc`, `kicad-cli sch export netlist --format kicadsexpr` |
+| 1 | extract_netlist | upload | `runs/<id>/netlist.json`; `components`, `nets`, `net_nodes` rows; ERC counts in stage details (recorded, not a gate) | `kicad-cli sch erc`, `kicad-cli sch export netlist --format kicadsexpr` |
 | 2 | constraints | `.kicad_pro`, net names, `constraints.json` | `constraints` row (body + per-field source) | pipeline |
 | 3 | build_board | upload, netlist, constraints | `runs/<id>/candidates/<seed>/unplaced.kicad_pcb` (generate) or the supplied board as candidate seed 0 (judge) | pcbnew |
 | 4 | place | unplaced board, constraints | `.../placed.kicad_pcb`, `candidates.proxy_cost` | pipeline (simulated annealing) |
