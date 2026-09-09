@@ -97,9 +97,17 @@ Authorization: Bearer <JUDGE_TOKEN>
 
 Score is 0 for a board with no violations and decreases with each violation's weighted
 excess; higher is better. Rules in the reference judge: single-ended and differential
-impedance (IPC-2141 microstrip), diff-pair length mismatch, decoupling capacitor distance to
-the IC power pin it serves, trace current capacity (IPC-2221) against rail current, crosstalk
-proxy (parallel run length over spacing), via count on high-speed nets, unrouted count.
+impedance, diff-pair length mismatch, decoupling capacitor distance to the IC power pin it
+serves, trace current capacity (IPC-2221) against rail current, crosstalk proxy (parallel run
+length over spacing), via count on high-speed nets, unrouted count.
+
+The impedance rule asks the physics provider (`pipeline/physics.py`) for each high-speed net's
+`z0` through its real cross-sections: the net's window is cut every millimetre
+(`windows.cuts`), the provider's `cut(cut)` answers per cut or `None` when the cut has no
+reference (no plane and no neighbour), and the net's `z0` is the median of the answers. A net
+with no reference anywhere falls back to the ideal-trace call `z0(w, h, t, er)` on its
+narrowest segment. `metrics.nets[net]` records `reference: "cut" | "assumed"`, `n_cuts` and
+`n_with_reference`, so a verdict says whether its physics saw the board or guessed a plane.
 
 ### Judge versions and approval
 
@@ -164,23 +172,31 @@ A judge version reaches the worker only after it agrees with the golden set.
 The judge's rules never change; where its impedance numbers come from does
 (`pipeline/physics.py`):
 
-| provider | name | what it is | speed |
-|---|---|---|---|
-| closed form | `rules 0.1.0` | IPC-2141 formulas, the original reference | microseconds |
-| oracle | `oracle-fd <solver version>` | `pipeline/fields.py`, a 2D quasi-static finite-difference field solver on the trace cross-section, validated against the Hammerstad closed form | under a second per geometry |
-| surrogate | `learned-fd <version>` | a model trained on oracle-solved geometries, gated against the oracle on the golden set | microseconds |
+Every provider answers three calls: `z0(w, h, t, er, inner)` and `zdiff(w, s, h, t, er, inner)`
+for an ideal trace over a plane, and `cut(cut)` for a real cross-section.
+
+| provider | name | what it is | `cut` | speed |
+|---|---|---|---|---|
+| closed form | `rules 0.1.0` | IPC-2141 formulas, the original reference | target alone, plane assumed | microseconds |
+| oracle | `oracle-fd fd2d-0.1+fd2d-cut-0.1` | `pipeline/fields.py`: `solve` (one trace or a pair over a plane) and `solve_cut` (any number of conductors on a layer, plane or not, full capacitance matrix by the charge on each conductor), validated against the Hammerstad-Jensen and coplanar-waveguide closed forms | the general solver | under a second per cut |
+| surrogate | `learned-fd <version>` | gradient boosting on `solve`-labelled geometries | target alone, plane assumed | under a millisecond |
+| cut model | `learned-cut <version>` | `pipeline/cutnet.py`: a transformer over the cut's conductors predicting both capacitance matrices; `z0` and coupling by `fields.derive`, the solver's own formula | the model | milliseconds |
 
 **Datasets** (`pipeline/data.py`, `scripts/dataset.py`, tables `datasets`, `dataset_shards`):
-`make dataset SHARDS=n N=m SEED=s` samples cross-sections from ranges seen on real boards,
-solves them with the oracle in `data:shard` jobs through the same queue as everything else,
+`make dataset [KIND=cut] SHARDS=n N=m SEED=s` samples cross-sections from ranges seen on real
+boards (`cross-section-0.1`: one trace or a pair; `cut-0.1`: a target with 0-4 neighbours and
+a plane half the time), solves them with the matching solver in `data:shard` jobs through
+the same queue as everything else,
 writes JSONL shards to `datasets/<id>/shard-NNN.jsonl` and a manifest with sampler version,
 solver version, seed, per-shard sha256 and counts. A dataset is `ready` only when every shard
 is present and hashed. Regenerating a shard is `--only-shard`.
 
-**Models** (`scripts/train_surrogate.py`, table `models`): reads a ready dataset by manifest,
-trains, reports held-out error and error on fresh oracle-solved geometries, uploads
-`models/judge/<version>.joblib` with the dataset id, solver and sampler versions, and metrics
-inside the artifact, and inserts a `models` row. `JUDGE_VERSION=<version> make judge` serves
+**Models** (`scripts/train_surrogate.py`, `scripts/train_cutnet.py`, table `models`): read a
+ready dataset by manifest, train, report held-out error, error on fresh solver-labelled
+geometries and (cut model) error on the real cuts of every board family, marking which
+families were trained on, upload `models/judge/<version>-<sha12>.joblib` with the dataset id,
+solver, sampler and feature versions, library version, commit and metrics inside the
+artifact, and insert a `models` row. `JUDGE_VERSION=<version> make judge` serves
 it; `JUDGE_VERSION=oracle` serves the oracle itself.
 
 **Truth for the gate**: `scripts/golden.py --physics oracle --update` rewrites the golden
@@ -208,16 +224,22 @@ perpendicular to the segment: every conductor on that layer the line crosses as
 in its pad merge), `plane_below` / `plane_above` (a pour on the adjacent copper layer contains
 the point), and `h`, `t`, `er` from the stackup (one dielectric height for every layer).
 
-**Label** (step 1): the target conductor alone, `fields.solve(Geometry(w, h, t, er))` when a
-plane is present on either adjacent layer; `None` otherwise (no reference, no characteristic
-impedance). Neighbours are recorded, not yet solved.
+**Label** (step 2, `fields.solve_cut`, `CUT_SOLVER_VERSION`): every conductor of the cut
+solved together (the nearest six neighbours kept), the plane as ground when either flag is
+set, air below the slab otherwise. Stored per cut: `z0` (target driven, everything else at
+0 V), `eps_eff`, `c11_pf_per_m`, `coupling` (net, k) per neighbour, both capacitance matrices,
+target index, conductor count, plane flag. `None` with no plane and no neighbour. A window
+row labelled by an older solver version is relabelled in place by the next `data:windows`
+job; `data.load_windows` returns every cut with its label and board family.
 
 **Tables**: `boards` (source, path, sha256 unique, object key `boards/<sha>.kicad_pcb`,
 family = split unit, layers, nets with copper, stackup) and `windows` (board, net, radius,
 window version, geometry hash unique, object key `windows/<hash>.json` holding window, cuts
 and labels, conductor and cut counts, labels with per-cut params and `z0_mean/min/max` over
 cuts with a plane, solver version, seconds). Job `data:windows {board_id}` makes one window
-per net with copper and skips hashes already stored, so rerunning inserts nothing.
+per net with copper and skips hashes already stored under the current solver version, so
+rerunning inserts nothing. `scripts/factory.py add-runs` registers every routed candidate of
+every run as a board (`source = 'run'`, family = the design it came from).
 
 ## Verification (independent of the judge)
 

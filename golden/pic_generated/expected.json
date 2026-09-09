@@ -20,6 +20,6 @@
  },
  "judge": {
   "name": "oracle-fd",
-  "version": "fd2d-0.1"
+  "version": "fd2d-0.1+fd2d-cut-0.1"
  }
 }

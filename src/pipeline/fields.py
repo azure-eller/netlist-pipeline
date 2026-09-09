@@ -207,7 +207,9 @@ def solve(g: Geometry, nx: int = 400, ny: int = 200) -> LineParams:
 
 
 def _fine(keys: list[float], dx: float) -> NDArray[np.float64]:
-    """Nodes from keys[0] to keys[-1], cells no larger than dx, every key on a node."""
+    """Nodes from keys[0] to keys[-1], cells no larger than dx, every key on a node. Keys
+    closer than TOL (touching conductors) collapse to one: a zero-length cell is a NaN."""
+    keys = [k for i, k in enumerate(keys) if i == 0 or k - keys[i - 1] > TOL]
     out = []
     for a, b in zip(keys[:-1], keys[1:], strict=True):
         n = max(2, math.ceil((b - a) / dx))
@@ -227,10 +229,24 @@ def _tail(start: float, d0: float, n: int, end: float) -> NDArray[np.float64]:
 
 def select_conductors(cut: Cut) -> tuple[list[Conductor], int]:
     """The conductors a solve (and a model) sees: the target and its MAX_NEIGHBOURS nearest
-    neighbours by |offset|, in cut order; and the target's index among them."""
+    neighbours by |offset|, in cut order; and the target's index among them. A neighbour
+    whose span overlaps one already kept is dropped: two nets cannot share copper, so the
+    overlap is the cut's approximation (a pad crossed off-centre, a shallow crossing), and a
+    shared grid node would make the matrix meaningless."""
     ti = next(i for i, c in enumerate(cut.conductors) if c.offset == 0.0)
-    keep = sorted(range(len(cut.conductors)), key=lambda i: abs(cut.conductors[i].offset))
-    keep = sorted(keep[: MAX_NEIGHBOURS + 1])
+    order = sorted(range(len(cut.conductors)), key=lambda i: abs(cut.conductors[i].offset))
+    keep: list[int] = []
+    spans: list[tuple[float, float]] = []
+    for i in order:
+        c = cut.conductors[i]
+        lo, hi = c.offset - c.width / 2, c.offset + c.width / 2
+        if any(lo < b - TOL and hi > a + TOL for a, b in spans):
+            continue
+        keep.append(i)
+        spans.append((lo, hi))
+        if len(keep) == MAX_NEIGHBOURS + 1:
+            break
+    keep.sort()
     return [cut.conductors[i] for i in keep], keep.index(ti)
 
 

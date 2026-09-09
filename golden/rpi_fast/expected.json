@@ -1,5 +1,5 @@
 {
- "score": -20.576054321653295,
+ "score": -24.175159076980147,
  "violations": [
   {
    "rule": "impedance",
@@ -30,6 +30,6 @@
  },
  "judge": {
   "name": "oracle-fd",
-  "version": "fd2d-0.1"
+  "version": "fd2d-0.1+fd2d-cut-0.1"
  }
 }

@@ -5,7 +5,7 @@ import math
 import pytest
 from scipy.special import ellipk
 
-from pipeline.fields import C_LIGHT, Geometry, solve, solve_cut
+from pipeline.fields import C_LIGHT, Geometry, select_conductors, solve, solve_cut
 from pipeline.windows import Conductor, Cut
 
 ETA0 = 376.730313668
@@ -167,3 +167,18 @@ def test_cut_grid_is_converged() -> None:
     assert a is not None and b is not None
     assert abs(a.z0 / b.z0 - 1) < 0.005, (a.z0, b.z0)
     assert abs(a.coupling[0][1] - b.coupling[0][1]) < 0.01
+
+
+def test_cut_drops_an_overlapping_neighbour_and_survives_touching_edges() -> None:
+    # GND at 3.716 (span 3.575-3.858) and JP1 at 4.002 (3.807-4.197) overlap: real cut, board 19
+    cut = _cut(
+        [(0.0, 0.2, "SIG"), (3.716, 0.283, "GND"), (4.002, 0.389, "JP1"), (4.232, 0.849, "V")],
+        plane=False,
+    )
+    cs, ti = select_conductors(cut)
+    assert [c.net for c in cs] == ["SIG", "GND"] and ti == 0
+    p = solve_cut(cut)
+    assert p is not None and math.isfinite(p.z0) and p.n_conductors == 2
+    touching = _cut([(0.0, 0.3, "SIG"), (0.4, 0.5, "A")], plane=True)  # edges meet at 0.15
+    q = solve_cut(touching)
+    assert q is not None and math.isfinite(q.z0) and q.n_conductors == 2

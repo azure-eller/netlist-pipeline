@@ -32,13 +32,19 @@ broken-capacitor case; the record is in [experiments](experiments/README.md).
 
 ## Physics providers
 
-The judge's rules are fixed; where its impedance numbers come from is a provider. Three exist:
+The judge's rules are fixed; where its impedance numbers come from is a provider. Every
+provider answers `z0` and `zdiff` for an ideal trace over a plane and `cut` for a real
+cross-section (`windows.Cut`: the target, its neighbours, a plane or not). The impedance rule
+cuts each high-speed net every millimetre and takes the median of the provider's `cut`
+answers; a net with no reference anywhere (no plane, no neighbour) falls back to the ideal
+call and the verdict says `reference: "assumed"`. Four providers:
 
-| provider | what | speed | gate |
+| provider | what | `cut` sees | speed |
 |---|---|---|---|
-| `rules 0.1.0` | IPC-2141 closed form, the original reference | microseconds | passes |
-| `oracle-fd fd2d-0.1` | our own 2D quasi-static field solver on the trace cross-section (`pipeline/fields.py`), within 1% of the Hammerstad closed form | 0.36 s per geometry | is the truth |
-| `learned-fd v5` | gradient boosting trained on 5,000 oracle-solved geometries | microseconds | passes |
+| `rules 0.1.0` | IPC-2141 closed form, the original reference | the target alone; assumes a plane | microseconds |
+| `oracle-fd fd2d-0.1+fd2d-cut-0.1` | our own 2D field solver (`pipeline/fields.py`): `solve` for one trace or a pair, `solve_cut` for any number of conductors, plane or not (`docs/FACTORY.md` step 2) | everything | under a second per cut |
+| `learned-fd v5` | gradient boosting trained on 5,000 `solve`-labelled geometries | the target alone; assumes a plane | under a millisecond |
+| `learned-cut v6` | `pipeline/cutnet.py`, a transformer over the cut's conductors predicting both capacitance matrices, trained on `solve_cut`-labelled cuts (`docs/experiments/cutnet-v6.md`) | everything | milliseconds |
 
 The data pipeline is the same queue that builds boards: `make dataset SHARDS=4 N=1250` samples
 cross-sections from ranges seen on real boards, solves them in shard jobs, and writes hashed

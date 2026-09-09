@@ -20,10 +20,20 @@ Every sample is drawn from `random.Random(data.shard_seed(seed, shard))` (`seed 
 shard`) in a fixed order, so a dataset is a pure function of `(sampler_version, seed, shards,
 samples_per_shard)`.
 
+## Cut sampler (`data.sample_cut`, `CUT_SAMPLER_VERSION = cut-0.1`)
+
+The second sampler, for the cut model: a `windows.Cut` rather than a `Geometry`. Target width
+and the stackup as above; a plane below with probability 0.5; 0-4 neighbours (none 25 %, then
+each further one with probability 0.5), each with width log-uniform 0.1-2.0 mm and edge gap
+log-uniform 0.1-5.0 mm, placed alternately right and left so they never overlap, nets `N1..`
+and target `T`. A draw with no plane and no neighbour has no reference and is redrawn. Solved
+by `fields.solve_cut`; shard lines are `{"i", "cut", "params": CutParams, "solver":
+"fd2d-cut-0.1", "seconds"}`. `make dataset KIND=cut SHARDS=8 N=1000 SEED=1`.
+
 ## Shard job (`data:shard`, payload `{dataset_id, shard}`)
 
-Loads the dataset row, refuses if its `solver_version` is not the installed
-`fields.SOLVER_VERSION`, samples `samples_per_shard` geometries, solves them across
+Loads the dataset row, refuses if its `solver_version` is not the one this code pairs with
+its `sampler_version` (`data.SOLVER_FOR`), samples `samples_per_shard` geometries or cuts, solves them across
 `os.cpu_count()` processes, and writes `datasets/<id>/shard-<NNN>.jsonl`, one object per line:
 
 ```json
@@ -73,11 +83,15 @@ a new dataset.
 with the hashes verified, and fits on `geometry -> params`. The `models` row it writes carries
 `dataset_id`, closing the chain artifact -> dataset -> sampler/solver versions and seed.
 
-## Windows (docs/FACTORY.md step 1)
+## Windows (docs/FACTORY.md steps 1 and 2)
 
 The second kind of data: real board geometry instead of sampled parameters. `scripts/factory.py
-add-board` uploads a `.kicad_pcb` and inserts a `boards` row; `data:windows` jobs cut one
-window per net with copper and label every cut with the solver above on the target conductor.
+add-board` uploads a `.kicad_pcb` and inserts a `boards` row (`add-runs` does it for every
+routed candidate of every run); `data:windows` jobs cut one window per net with copper and
+label every cut with `fields.solve_cut`: every conductor together, plane or not. A window
+labelled by an older solver version is relabelled in place. `data.load_windows(conn)` returns
+every cut with its label, board family and source: the real-board test set for a cut model,
+split by family so a board family is entirely seen or entirely unseen.
 `scripts/factory.py show HASH` prints a window's cuts:
 
 ```

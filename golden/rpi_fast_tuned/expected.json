@@ -1,6 +1,11 @@
 {
- "score": -3.4299016474610946,
+ "score": -4.161389356355395,
  "violations": [
+  {
+   "rule": "impedance",
+   "net": "/ID_SCL",
+   "ref": null
+  },
   {
    "rule": "current",
    "net": "+5V",
@@ -16,10 +21,10 @@
   "track_length_mm": 141.73838482532167,
   "via_count": 2,
   "unrouted": 0,
-  "violations": 2
+  "violations": 3
  },
  "judge": {
   "name": "oracle-fd",
-  "version": "fd2d-0.1"
+  "version": "fd2d-0.1+fd2d-cut-0.1"
  }
 }

@@ -32,3 +32,18 @@ copper. Two cases fix that, both on the generated HAT board with its routed I2C 
 
 Expected answers for every case now come from the oracle (`scripts/golden.py --physics
 oracle --update`); the closed form is measured against them like any other judge and passes.
+
+## Answer key recaptured from the general solver (2026-09-09)
+
+`scripts/golden.py --physics oracle --update` again, now with the impedance rule asking the
+provider per real cross-section (`docs/FACTORY.md` step 2: neighbours, plane or not). The five
+plane-less cases did not move. The two impedance-live cases did, because the generated HAT has
+no plane under its I2C traces and the old key assumed one:
+
+| case | old key (plane assumed) | new key (real cross-sections) |
+|---|---|---|
+| `rpi_fast` | -20.58 | -24.18 |
+| `rpi_fast_tuned` | -3.43 | -4.16 |
+
+Any judge that still assumes a plane (the closed form, `learned-fd v5`) is measured against
+this key like any other; the ledger in `docs/experiments/golden.jsonl` records what happened.
