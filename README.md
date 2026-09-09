@@ -1,23 +1,10 @@
 # netlist-pipeline
 
-Schematic in. Physics-judged, independently verified, fabrication-ready board out.
-
-A KiCad schematic goes in. A worker extracts the netlist, places and routes a board, scores
-its physics, verifies it with KiCad's own design-rule check, and exports Gerbers. Every stage
-is a recorded job with a tool version, an input hash, and an output hash, so any run can be
-replayed. Upload a board you already laid out and the same pipeline judges and verifies it
-instead.
-
-The physics judge is a slot. The reference is closed-form physics; a learned model replaces it
-behind one HTTP contract, and a golden set decides whether the worker will accept it. That
-slot is the point of the repo: everything around a physics model, built so the model can be
-dropped in.
-
-**The output.** KiCad's RaspberryPi-HAT template generated from its schematic alone: header
-pinned by the client's constraints, the rest placed by search, routed, DRC-clean, netlist
-verified. About forty seconds.
-
-![RPi HAT generated from its schematic](docs/rpi_hat_generated.png)
+A KiCad schematic goes in. A fabrication-ready board comes out: placed by search, routed,
+scored by a physics judge, verified by KiCad's own design-rule check, exported as Gerbers.
+Every stage is a recorded job with a tool version, input hash and output hash, so any run can
+be replayed. The judge is a slot: a learned physics model replaces the closed-form reference
+behind one HTTP contract, and a golden set decides whether the worker accepts it.
 
 ## Architecture
 
@@ -49,16 +36,25 @@ compose` runs the same layout with MinIO standing in for S3.
 ```
 
 Any stage failure stops the run with the error text. The judge picks the best candidate; only
-verify decides whether the run passed.
+verify decides whether the run passed. Upload a board you already laid out and the pipeline
+skips 4 and 5 and judges and verifies yours instead.
 
 **Stage 4, watched.** The annealer on KiCad's 63-part `pic_programmer` demo: parts start on a
 grid and trade wire length against overlap as the temperature falls.
 
 ![Simulated annealing placing the pic_programmer](docs/media/anneal.gif)
 
-**One run, as recorded.** The `stages` and `artifacts` rows for run 79 drawn as a hash graph
-by `scripts/provenance.py`. Every green arrow is one stage's output hash equal to the next
-stage's input hash.
+## The output
+
+`pic_programmer`, generated from its schematic alone: three seeds placed and routed, the
+judge's pick, DRC-clean, netlist verified against the schematic. About four minutes.
+
+![pic_programmer generated from its schematic](docs/media/pic_programmer_generated.png)
+
+Every run leaves `board.kicad_pcb`, `gerbers.zip`, `drill.zip`, `positions.csv`, `board.png`,
+`stats.json` and the judge's `report.json` behind, each with its sha256 in the `artifacts`
+table. The run itself is a hash chain: every stage's input hash is an earlier stage's output
+hash, drawn here for one run by `scripts/provenance.py`.
 
 ![Provenance graph for run 79](docs/media/provenance_79.png)
 
