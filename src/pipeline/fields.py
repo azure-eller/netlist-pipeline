@@ -259,9 +259,9 @@ def solve_cut(cut: Cut, nx: int = 500, ny: int = 200) -> CutParams | None:
     plane the slab is over air out to a Neumann edge, and the neighbours are the only
     reference: with no neighbour either there is nothing to measure against, so None."""
     plane = cut.plane_below or cut.plane_above
-    if not plane and len(cut.conductors) == 1:
-        return None
     cs, ti = select_conductors(cut)
+    if not plane and len(cs) == 1:  # after selection: an overlapping neighbour is no reference
+        return None
     h, t, er = cut.h, cut.t, cut.er
     w0 = cs[ti].width
     edges = sorted(e for c in cs for e in (c.offset - c.width / 2, c.offset + c.width / 2))

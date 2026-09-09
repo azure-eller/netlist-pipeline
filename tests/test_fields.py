@@ -182,3 +182,5 @@ def test_cut_drops_an_overlapping_neighbour_and_survives_touching_edges() -> Non
     touching = _cut([(0.0, 0.3, "SIG"), (0.4, 0.5, "A")], plane=True)  # edges meet at 0.15
     q = solve_cut(touching)
     assert q is not None and math.isfinite(q.z0) and q.n_conductors == 2
+    # board 27: the only neighbour overlaps the target and there is no plane -> no reference
+    assert solve_cut(_cut([(0.0, 0.5, "SIG"), (2.609, 4.899, "hole")], plane=False)) is None

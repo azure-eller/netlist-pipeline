@@ -188,9 +188,9 @@ class Learned:
 
     def predict(self, cut: windows.Cut) -> fields.CutParams | None:
         plane = cut.plane_below or cut.plane_above
-        if not plane and len(cut.conductors) == 1:
-            return None
         _, _, ti, nets = featurise(cut)
+        if not plane and len(nets) == 1:  # same rule as the solver: nothing to measure against
+            return None
         batch = batchify([cut])
         batch.tokens = (batch.tokens - self.x_mean) / self.x_std
         with torch.no_grad():
