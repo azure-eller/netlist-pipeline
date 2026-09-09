@@ -30,23 +30,6 @@ That service is the model slot.
 
 </details>
 
-## The eight stages
-
-```
- 1  extract_netlist   kicad-cli ERC + netlist export -> components, nets, nodes
- 2  constraints       project net classes + name patterns + constraints.json
- 3  build_board       supplied board, or outline + library footprints wired to nets
- 4  place             simulated annealing (generate mode only)
- 5  route             Freerouting via Specctra DSN/SES (generate mode only)
- 6  judge             physics score per candidate; best one chosen   <- the model slot
- 7  verify            DRC with schematic parity, IPC-D-356 netlist == schematic, in bounds
- 8  export            gerbers, drill, positions, stats, render, report
-```
-
-Any stage failure stops the run with the error text. The judge picks the best candidate; only
-verify decides whether the run passed. Upload a board you already laid out and the pipeline
-skips 4 and 5 and judges and verifies yours instead.
-
 **Stage 4, watched.** The annealer on KiCad's 63-part `pic_programmer` demo: parts start on a
 grid and trade wire length against overlap as the temperature falls.
 
