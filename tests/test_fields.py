@@ -3,8 +3,10 @@
 import math
 
 import pytest
+from scipy.special import ellipk
 
-from pipeline.fields import Geometry, solve
+from pipeline.fields import C_LIGHT, Geometry, solve, solve_cut
+from pipeline.windows import Conductor, Cut
 
 ETA0 = 376.730313668
 T, ER = 0.035, 4.5
@@ -71,3 +73,97 @@ def test_invalid_geometry_raises(bad: tuple[float, float, float, float]) -> None
         solve(Geometry(*bad))
     with pytest.raises(ValueError):
         solve(Geometry(1, 1, T, ER, s=0))
+
+
+# ---- the general cut solver (docs/FACTORY.md step 2) ----
+
+
+def _cut(conductors: list[tuple[float, float, str]], plane: bool, h: float = 1.51) -> Cut:
+    cs = tuple(Conductor(o, w, n) for o, w, n in sorted(conductors))
+    return Cut(0.0, 0.0, "F.Cu", cs, plane, False, h, T, ER)
+
+
+def test_cut_with_one_conductor_matches_solve() -> None:
+    for w in (0.3, 1.51, 3.0):
+        p = solve_cut(_cut([(0.0, w, "SIG")], plane=True))
+        assert p is not None and p.n_conductors == 1 and p.plane and p.coupling == ()
+        ref = solve(Geometry(w, 1.51, T, ER))
+        assert abs(p.z0 / ref.z0 - 1) < 0.005, (w, p.z0, ref.z0)
+        assert abs(p.eps_eff / ref.eps_eff - 1) < 0.01
+
+
+def test_cut_pair_matches_solve_modes() -> None:
+    w, s = 0.3, 0.3
+    p = solve_cut(_cut([(0.0, w, "SIG"), (w + s, w, "B")], plane=True))
+    assert p is not None
+    ref = solve(Geometry(w, 1.51, T, ER, s))
+    (c, c0), i = (p.cmatrix, p.cmatrix_air), p.target
+    # even mode: both at +1 V -> C11 + C12; odd: +1/-1 -> C11 - C12 (C12 < 0)
+    for sign, z_ref in ((+1, ref.z_even), (-1, ref.z_odd)):
+        ce, ce0 = c[i][i] + sign * c[i][1 - i], c0[i][i] + sign * c0[i][1 - i]
+        z = 1 / (C_LIGHT * math.sqrt(ce * ce0) * 1e-12)
+        assert z_ref is not None and abs(z / z_ref - 1) < 0.01, (sign, z, z_ref)
+
+
+def test_cut_without_plane_matches_coplanar_waveguide() -> None:
+    """Centre strip w, gap s to a wide ground each side, no plane, thick substrate: the
+    conformal-map closed form Z = 30 pi / sqrt(eps_eff) K(k') / K(k), k = w / (w + 2s),
+    eps_eff = (er + 1) / 2, with Gupta's finite-thickness correction (the field solver has
+    real copper thickness; at t/s = 7 % it is worth 8 %)."""
+    w, s, wg = 0.5, 0.5, 15.0
+    h = 10 * w  # thick enough that the substrate reads as infinite
+    p = solve_cut(
+        _cut(
+            [(0.0, w, "SIG"), (w / 2 + s + wg / 2, wg, "GND"), (-(w / 2 + s + wg / 2), wg, "GND")],
+            plane=False,
+            h=h,
+        )
+    )
+    assert p is not None and not p.plane
+
+    def ratio(k: float) -> float:  # K(k) / K(k')
+        return float(ellipk(k * k) / ellipk(1 - k * k))
+
+    d = 1.25 * T / math.pi * (1 + math.log(4 * math.pi * w / T))
+    k0, k = w / (w + 2 * s), (w + d) / (w + d + 2 * (s - d))
+    ee = (ER + 1) / 2
+    ee -= 0.7 * (ee - 1) * (T / s) / (ratio(k0) + 0.7 * T / s)
+    z = 30 * math.pi / math.sqrt(ee) / ratio(k)
+    assert abs(p.z0 / z - 1) < 0.03, (p.z0, z)
+    assert abs(p.eps_eff / ee - 1) < 0.03, (p.eps_eff, ee)
+
+
+def test_cut_capacitance_matrix_is_symmetric_and_charge_agrees_with_energy() -> None:
+    p = solve_cut(_cut([(0.0, 0.3, "SIG"), (0.7, 0.5, "A"), (-1.2, 0.2, "B")], plane=True))
+    assert p is not None
+    c = p.cmatrix
+    for i in range(3):
+        for j in range(3):
+            assert abs(c[i][j] - c[j][i]) < 1e-3 * abs(c[i][i]), (i, j)
+        assert c[i][i] > 0 and all(c[i][j] < 0 for j in range(3) if j != i)
+    # 2W = phi^T K phi for the target driven alone must equal C11 from its charge
+    g = Geometry(0.3, 1.51, T, ER)
+    assert (
+        abs(solve_cut(_cut([(0.0, 0.3, "SIG")], plane=True)).c11_pf_per_m / solve(g).c_pf_per_m - 1)
+        < 0.005
+    )  # type: ignore[union-attr]
+
+
+def test_cut_far_neighbour_does_not_matter_and_coupling_falls_with_gap() -> None:
+    alone = solve_cut(_cut([(0.0, 0.3, "SIG")], plane=True))
+    far = solve_cut(_cut([(0.0, 0.3, "SIG"), (0.15 + 3.0 + 0.15, 0.3, "A")], plane=True))
+    assert alone is not None and far is not None
+    assert abs(far.z0 / alone.z0 - 1) < 0.01
+    ks = [
+        solve_cut(_cut([(0.0, 0.3, "SIG"), (0.3 + gap, 0.3, "A")], plane=True)).coupling[0][1]  # type: ignore[union-attr]
+        for gap in (0.1, 0.3, 1.0, 3.0)
+    ]
+    assert ks == sorted(ks, reverse=True) and 0 < ks[-1] < ks[0] < 1, ks
+
+
+def test_cut_grid_is_converged() -> None:
+    cut = _cut([(0.0, 0.3, "SIG"), (0.6, 0.3, "A")], plane=True)
+    a, b = solve_cut(cut), solve_cut(cut, nx=1000, ny=400)
+    assert a is not None and b is not None
+    assert abs(a.z0 / b.z0 - 1) < 0.005, (a.z0, b.z0)
+    assert abs(a.coupling[0][1] - b.coupling[0][1]) < 0.01
