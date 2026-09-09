@@ -85,8 +85,9 @@ come from? That is a separate piece, the **physics provider**, and there are thr
 | provider | what it is | one answer takes |
 |---|---|---|
 | formula | the IPC-2141 closed form, a one-line equation from a standards handbook | a few microseconds |
-| field solver | our own program that computes the electric field around the trace | 0.4 s |
-| learned-fd v5 | a model trained to predict what the field solver would say | under a millisecond |
+| field solver | our own program that computes the electric field around the trace, alone or among its neighbours | 0.4 to 1.6 s |
+| learned-fd v5 | gradient boosting trained to predict what the solver says for one trace over a plane | under a millisecond |
+| learned-cut v8 | a small transformer that reads the whole slice, neighbours and all, and predicts the solver's capacitance matrix | a few milliseconds |
 
 The same three traces through all three, single-ended impedance in ohms:
 
@@ -102,8 +103,20 @@ flagged both of them.
 
 The formula is quick and usually close, but it is a curve fitted to measurements decades
 ago, valid over a limited range of shapes, and it knows nothing about a neighbouring trace or
-a missing plane. The field solver is the truth we have. The learned model exists because the
+a missing plane. The field solver is the truth we have. The learned models exist because the
 truth is slow.
+
+The first three describe a slice with four numbers and assume a solid plane under the trace.
+Boards this pipeline generates have no plane, and only 46 of the 5,206 slices cut from our
+real boards do. The fourth provider reads the slice as it is: a list of conductors, each
+with its width and distance, and whether a plane is there. Each conductor becomes a token, the
+tokens attend to each other with their pairwise gaps built into the attention, and a
+symmetric head reads off the full capacitance matrix, the object the solver itself computes.
+Impedance and crosstalk coupling are derived from that matrix by the solver's own formula.
+Trained on 8,000 synthetic slices plus the real slices of one board family, it predicts the
+solver within 1.8 % on a board family it never saw, where gradient boosting on hand-made
+features manages 3.5 %. The record, including the run that did not transfer, is in
+[docs/experiments/cutnet.md](docs/experiments/cutnet.md).
 
 ### 4. The field solver, in plain words
 
@@ -215,10 +228,11 @@ unapproved judge all fail loudly.
 
 ### 7. What it does not know
 
-- **One slice, one plane.** The solver models a trace over a single ground plane. A trace
-  buried between two planes gets the single-plane answer, and boards this pipeline generates
-  have no ground pour yet, so the plane the numbers assume is not there. Both are recorded
-  follow-ups, not hidden.
+- **One slice, one layer.** The general solver sees every conductor on the trace's own
+  layer and a plane on the next, but not a trace on another layer, vias, or a plane with a
+  hole in it. Boards this pipeline generates still have no ground pour, which is why the
+  golden answer key had to be recomputed with real slices and why the formula and v5 now
+  fail it.
 - **No losses, no length.** Copper resistance and dielectric loss are ignored, and nothing
   depends on how long a trace is.
 - **Only inside the box.** The model was trained on the ranges in the table above. Outside

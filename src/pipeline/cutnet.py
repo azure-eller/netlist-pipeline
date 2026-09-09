@@ -142,13 +142,23 @@ class CutNet(nn.Module):
         return torch.where(eye, self.diag(x)[:, :, None, :].expand_as(off), off)
 
 
-def loss(pred: Tensor, y: Tensor, valid: Tensor, conservation: float = 0.1) -> Tensor:
-    """MSE on log|C| over valid entries, plus relu(sum_j |C_ij| - C_ii) / C_ii per real row:
-    a Maxwell capacitance matrix is diagonally dominant, the plane (or the far field) taking
-    the rest of each conductor's charge."""
+def loss(
+    pred: Tensor,
+    y: Tensor,
+    valid: Tensor,
+    y_mean: Tensor | None = None,
+    y_std: Tensor | None = None,
+    conservation: float = 0.1,
+) -> Tensor:
+    """MSE on standardised log|C| over valid entries, plus relu(sum_j |C_ij| - C_ii) / C_ii per
+    real row on the de-standardised matrices: a Maxwell capacitance matrix is diagonally
+    dominant, the plane (or the far field) taking the rest of each conductor's charge."""
     v = valid[..., None].expand_as(pred)
     mse = ((pred - y) ** 2)[v].mean()
-    c = pred.exp()
+    if conservation == 0:
+        return mse
+    logc = pred if y_mean is None or y_std is None else pred * y_std + y_mean
+    c = logc.exp()
     k = pred.shape[1]
     eye = torch.eye(k, device=pred.device, dtype=torch.bool)[None, :, :, None]
     offsum = torch.where(valid[..., None] & ~eye, c, torch.zeros_like(c)).sum(dim=2)  # [B,K,2]

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Train the cut model (pipeline.cutnet) on a cut dataset and register it as a judge version.
 
-    scripts/train_cutnet.py --dataset ID --version v6 [--real none|FAMILY,...] [--model cutnet|gbr]
-                            [--epochs 400] [--holdout 0.2] [--fresh 200] [--seed 0]
+    scripts/train_cutnet.py --dataset ID --version v8 [--real none|FAMILY,...] [--model cutnet|gbr]
+                            [--epochs 800] [--holdout 0.2] [--fresh 200] [--seed 0]
 
 Training rows: the dataset's synthetic cuts minus a held-out fraction, plus the real cuts of
 the families named by --real. Reported: held-out synthetic, fresh synthetic cuts solved after
@@ -55,8 +55,17 @@ def load_real() -> dict[str, list[Row]]:
     by_family: dict[str, list[Row]] = defaultdict(list)
     for r in rows:
         if r["params"] is not None:
-            by_family[r["family"]].append((r["cut"], r["params"]))
+            by_family[family(r["family"])].append((r["cut"], r["params"]))
     return dict(by_family)
+
+
+def family(name: str) -> str:
+    """Boards registered by hand carry their directory name; fold `pic_generated` and
+    `rpi_generated` into the design families they came from."""
+    for prefix, fam in (("pic", "pic_programmer"), ("rpi", "rpi_hat")):
+        if name.startswith(prefix):
+            return fam
+    return name
 
 
 def fresh_rows(seed: int, n: int) -> list[Row]:
@@ -114,7 +123,13 @@ def errors(pred: list[fields.CutParams | None], truth: list[fields.CutParams]) -
 
 
 def train_cutnet(
-    train: list[Row], val: list[Row], epochs: int, seed: int, device: torch.device
+    train: list[Row],
+    val: list[Row],
+    epochs: int,
+    seed: int,
+    device: torch.device,
+    conservation: float = 0.1,
+    config: dict[str, int] | None = None,
 ) -> tuple[cutnet.CutNet, dict[str, Any], dict[str, Any]]:
     torch.manual_seed(seed)
     xb = cutnet.batchify([c for c, _ in train])
@@ -138,7 +153,8 @@ def train_cutnet(
 
     tb, ty, tv = prep(train)
     vb, vy, vv = prep(val)
-    config = {"d": 64, "heads": 4, "layers": 2, "ff": 128}
+    ym, ys = y_mean.to(device), y_std.to(device)
+    config = config or {"d": 128, "heads": 8, "layers": 3, "ff": 256}
     model = cutnet.CutNet(**config).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, epochs)
@@ -150,7 +166,7 @@ def train_cutnet(
         for i in range(0, n, bs):
             idx = perm[i : i + bs]
             sub = cutnet.Batch(tb.tokens[idx], tb.pairs[idx], tb.mask[idx], tb.target[idx])
-            lo = cutnet.loss(model(sub), ty[idx], tv[idx])
+            lo = cutnet.loss(model(sub), ty[idx], tv[idx], ym, ys, conservation)
             opt.zero_grad()
             lo.backward()
             opt.step()
@@ -158,10 +174,10 @@ def train_cutnet(
         if epoch % 10 == 9 or epoch == epochs - 1:
             model.eval()
             with torch.no_grad():
-                vl = float(cutnet.loss(model(vb), vy, vv))
+                vl = float(cutnet.loss(model(vb), vy, vv, ym, ys, conservation))
             if vl < best:
                 best, best_state = vl, copy.deepcopy(model.state_dict())
-            print(f"epoch {epoch + 1:4d}  train {float(lo):.4f}  val {vl:.4f}  best {best:.4f}")
+            print(f"epoch {epoch + 1:4d}  train {lo.item():.4f}  val {vl:.4f}  best {best:.4f}")
     model.load_state_dict(best_state)
     model.cpu().eval()
     return model, config, norm
@@ -173,10 +189,11 @@ def main() -> None:
     ap.add_argument("--version", default="v6")
     ap.add_argument("--real", default="none", help="none, or families to train on, comma-separated")
     ap.add_argument("--model", choices=("cutnet", "gbr"), default="cutnet")
-    ap.add_argument("--epochs", type=int, default=400)
+    ap.add_argument("--epochs", type=int, default=800)
     ap.add_argument("--holdout", type=float, default=0.2)
     ap.add_argument("--fresh", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--conservation", type=float, default=0.1)
     a = ap.parse_args()
     t0 = time.perf_counter()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -227,7 +244,7 @@ def main() -> None:
         write_doc(a, metrics, time.perf_counter() - t0, None)
         return
 
-    model, config, norm = train_cutnet(train, val, a.epochs, a.seed, device)
+    model, config, norm = train_cutnet(train, val, a.epochs, a.seed, device, a.conservation)
     bundle = {
         "kind": "cutnet",
         "version": a.version,
