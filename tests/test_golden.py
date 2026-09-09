@@ -27,10 +27,16 @@ def rules_run() -> tuple[ModuleType, dict[str, Any], dict[str, Any]]:
     return g, g.load_expected(), {c: g.score_rules(c) for c in g.CASES}
 
 
-def test_rules_judge_passes_golden_set(rules_run: tuple[ModuleType, Any, Any]) -> None:
+def test_rules_judge_fails_only_the_impedance_live_cases(
+    rules_run: tuple[ModuleType, Any, Any],
+) -> None:
+    """The answer key comes from the general solver on real cross-sections (2026-09-09); the
+    closed form assumes a plane the HAT does not have, so it fails exactly the two cases
+    whose high-speed nets carry copper and passes the five plane-less ones."""
     g, expected, got = rules_run
     passed, cases = g.compare(expected, got, ["score", "violations"])
-    assert passed, cases
+    assert not passed
+    assert {c for c, r in cases.items() if not r["ok"]} == {"rpi_fast", "rpi_fast_tuned"}, cases
 
 
 def test_missing_c1_violation_fails_naming_c1(rules_run: tuple[ModuleType, Any, Any]) -> None:

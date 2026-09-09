@@ -206,6 +206,11 @@ same way.
 
 ## Data factory (docs/FACTORY.md)
 
+An opt-in experimental GPU implementation lives in `pipeline/fields_gpu.py`, with
+CPU-oracle accuracy and timing comparisons in `scripts/benchmark_fields_gpu.py`.
+It preserves the CPU grid and finite-volume equations and rejects nonconvergence.
+It is not used by queued label jobs or registered as a production solver version.
+
 Where a physics model's labels come from. Step 1 is in place; the roadmap and status lines
 live in `docs/FACTORY.md` and move in the same change as the code.
 

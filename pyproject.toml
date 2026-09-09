@@ -19,6 +19,7 @@ dependencies = [
 dev = ["ruff", "mypy", "pytest", "awscli", "boto3-stubs[s3]", "matplotlib"]
 learned = ["scikit-learn>=1.5", "joblib>=1.4", "numpy>=2", "scipy>=1.14"]
 torch = ["torch>=2.10"]  # the cut model; install from https://download.pytorch.org/whl/cu128 for CUDA
+gpu = ["cupy-cuda12x==14.2.0"]  # opt-in GPU field-solver experiment; CUDA 12 runtime required
 claude = ["claude-agent-sdk>=0.2"]
 
 [build-system]

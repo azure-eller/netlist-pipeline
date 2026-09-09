@@ -42,7 +42,16 @@ rotate/mirror augmentation (the identity for a cross-section label).
    charge and energy agree, far neighbours do not matter, coupling falls with gap, grid
    converged. Not modelled: conductors on other layers (a pour on the adjacent layer is the
    plane; a trace there is not seen), vias, losses, frequency. Windows are relabelled under
-   it; `windows.label` calls it.
+   it; `windows.label` calls it. An opt-in GPU experiment (`fields_gpu.solve_cut`,
+   `scripts/benchmark_fields_gpu.py`, `tests/test_fields_gpu.py`) assembles and solves the
+   same equations on CUDA with a geometric multigrid (line smoothers, CUDA graphs) as the
+   PCG preconditioner and matches the CPU answer to 1e-6. Measured 2026-09-09 on the RTX
+   5070: per cut 0.25-1.7 s against 0.25-1.4 s on one CPU core, so parity per cut and 1.4x
+   the 16-core pool's throughput; time goes to the multigrid setup (0.02-0.5 s) and 40-90
+   CG iterations at `rtol=1e-11` (1e-8 halves the solve and still agrees to 1e-8). The
+   20-50x that labelling at volume wants needs a different shape, not tuning: many cuts on
+   one shared grid solved as one batch, setup amortised across them. Production label jobs
+   use the CPU solver.
 3. **Board supply.** `partial` (2026-09-09: `scripts/factory.py add-runs` registers every
    routed candidate of every run, 35 boards from 38 candidates, families `pic_programmer`
    and `rpi_hat`; two families only, so the family split is one whole family held out).
