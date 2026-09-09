@@ -24,7 +24,7 @@ from scipy.optimize import brentq
 from scipy.sparse.linalg import spsolve
 
 if TYPE_CHECKING:
-    from pipeline.windows import Cut
+    from pipeline.windows import Conductor, Cut
 
 SOLVER_VERSION = "fd2d-0.1"
 CUT_SOLVER_VERSION = "fd2d-cut-0.1"
@@ -225,6 +225,15 @@ def _tail(start: float, d0: float, n: int, end: float) -> NDArray[np.float64]:
     return start + d0 * np.cumsum(r**k)
 
 
+def select_conductors(cut: Cut) -> tuple[list[Conductor], int]:
+    """The conductors a solve (and a model) sees: the target and its MAX_NEIGHBOURS nearest
+    neighbours by |offset|, in cut order; and the target's index among them."""
+    ti = next(i for i, c in enumerate(cut.conductors) if c.offset == 0.0)
+    keep = sorted(range(len(cut.conductors)), key=lambda i: abs(cut.conductors[i].offset))
+    keep = sorted(keep[: MAX_NEIGHBOURS + 1])
+    return [cut.conductors[i] for i in keep], keep.index(ti)
+
+
 @lru_cache(maxsize=256)
 def solve_cut(cut: Cut, nx: int = 500, ny: int = 200) -> CutParams | None:
     """Capacitance matrix of every conductor in `cut` (nearest MAX_NEIGHBOURS kept), by the
@@ -236,11 +245,7 @@ def solve_cut(cut: Cut, nx: int = 500, ny: int = 200) -> CutParams | None:
     plane = cut.plane_below or cut.plane_above
     if not plane and len(cut.conductors) == 1:
         return None
-    ti = next(i for i, c in enumerate(cut.conductors) if c.offset == 0.0)
-    keep = sorted(range(len(cut.conductors)), key=lambda i: abs(cut.conductors[i].offset))
-    keep = sorted(keep[: MAX_NEIGHBOURS + 1])
-    cs = [cut.conductors[i] for i in keep]
-    ti = keep.index(ti)
+    cs, ti = select_conductors(cut)
     h, t, er = cut.h, cut.t, cut.er
     w0 = cs[ti].width
     edges = sorted(e for c in cs for e in (c.offset - c.width / 2, c.offset + c.width / 2))

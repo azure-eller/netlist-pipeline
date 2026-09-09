@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Synthetic cross-section datasets through the job queue (docs/DATA.md).
 
-    scripts/dataset.py create [--shards N] [--per-shard M] [--seed S] [--name NAME]
-                              [--only-shard K] [--dataset ID]
+    scripts/dataset.py create [--kind cross-section|cut] [--shards N] [--per-shard M]
+                              [--seed S] [--name NAME] [--only-shard K] [--dataset ID]
     scripts/dataset.py status ID | wait ID [--timeout S] | finalize ID | show ID
 
 `create` inserts the dataset row and enqueues one `data:shard` job per shard; a running worker
@@ -19,19 +19,20 @@ from typing import Any
 
 import psycopg
 
-from pipeline import data, db, fields, jobs, storage
+from pipeline import data, db, jobs, storage
 
 
 def create(conn: psycopg.Connection, a: argparse.Namespace) -> None:
+    sampler = data.CUT_SAMPLER_VERSION if a.kind == "cut" else data.SAMPLER_VERSION
     with conn.cursor() as cur:
         if a.dataset is None:
             cur.execute(
                 "insert into datasets (name, sampler_version, solver_version, seed, shards, "
                 "samples_per_shard) values (%s, %s, %s, %s, %s, %s) returning id",
                 (
-                    a.name or f"cross-section-seed{a.seed}",
-                    data.SAMPLER_VERSION,
-                    fields.SOLVER_VERSION,
+                    a.name or f"{a.kind}-seed{a.seed}",
+                    sampler,
+                    data.SOLVER_FOR[sampler],
                     a.seed,
                     a.shards,
                     a.per_shard,
@@ -132,6 +133,7 @@ def main() -> None:
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("create")
+    c.add_argument("--kind", choices=("cross-section", "cut"), default="cross-section")
     c.add_argument("--shards", type=int, default=4)
     c.add_argument("--per-shard", type=int, default=1250)
     c.add_argument("--seed", type=int, default=0)

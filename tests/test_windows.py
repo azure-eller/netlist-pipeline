@@ -71,8 +71,9 @@ def test_cuts_see_plane_width_neighbour_and_label_matches_solver() -> None:
         assert c.plane_below and not c.plane_above and c.layer == "F.Cu"
         assert c.target.width == 0.3
         assert [(x.offset, x.width, x.net) for x in c.conductors if x.offset] == [(1.0, 0.5, "N2")]
-    assert windows.label(cs[0]) == fields.solve(fields.Geometry(0.3, 1.51, 0.035, 4.5))
-    assert windows.label(replace(cs[0], plane_below=False)) is None
+    assert windows.label(cs[0]) == fields.solve_cut(cs[0])
+    alone = replace(cs[0], conductors=(cs[0].target,), plane_below=False)
+    assert windows.label(alone) is None  # no plane, no neighbour: no reference
     assert windows.cuts(windows.extract(replace(b, segments=(replace(sig, x2=10.5), near)), "SIG"))
     assert (
         len(windows.cuts(windows.extract(replace(b, segments=(replace(sig, x2=10.5),)), "SIG")))
@@ -90,9 +91,8 @@ def conn(monkeypatch: pytest.MonkeyPatch) -> Iterator[psycopg.Connection]:
     monkeypatch.setattr(
         data, "Pool", __import__("tests.test_data", fromlist=["SerialPool"]).SerialPool
     )
-    monkeypatch.setattr(
-        fields, "solve", lambda g: fields.LineParams(50.0, 3.0, 100.0, None, None, None, None)
-    )
+    stub = fields.CutParams(50.0, 3.0, 100.0, (), ((100.0,),), ((33.0,),), 0, 1, True)
+    monkeypatch.setattr(fields, "solve_cut", lambda c: stub)
     yield c
     with c.cursor() as cur:
         cur.execute("delete from boards where source = 'test_windows'")
@@ -119,7 +119,7 @@ def test_windows_job_inserts_once(conn: psycopg.Connection) -> None:
             (board_id,),
         )
         rows = cur.fetchall()
-    assert len(rows) == 33 and rows[0][5] == fields.SOLVER_VERSION
+    assert len(rows) == 33 and rows[0][5] == fields.CUT_SOLVER_VERSION
     rec = json.loads(storage.get(rows[0][2]))
     assert windows.Window.from_json(rec["window"]).geometry_hash == rows[0][1]
     assert len(rec["cuts"]) == rows[0][3] == len(rec["labels"]["cuts"])

@@ -8,9 +8,11 @@ All lengths are mm unless the name says otherwise. The stackup of record is
 from __future__ import annotations
 
 import math
+import statistics
 from collections import Counter, defaultdict
 from typing import Any
 
+from pipeline import windows
 from pipeline.models import Board, Constraints, JudgeResult, Netlist, Segment, Violation
 from pipeline.physics import FORMULA, Physics
 
@@ -114,13 +116,27 @@ def score(
         nets[net]["length_mm"] = sum(s.length for s in ss)
         nets[net]["via_count"] = vias[net]
 
-    # impedance
+    # impedance: the provider sees the real cross-sections along the net (neighbours, plane or
+    # not) and the net's z0 is their median; a net with no reference anywhere falls back to
+    # the ideal-trace call on its narrowest segment, and says so.
     for net in fast:
         if not segs[net]:
             continue
         s = min(segs[net], key=lambda x: x.width)
-        z = ph.z0(s.width, h, t, st.er, inner=s.layer not in OUTER)
-        nets[net].update(z0_ohm=z, width_mm=s.width, layer=s.layer)
+        cuts = windows.cuts(windows.extract(board, net))
+        zs = [zc for cut in cuts if (zc := ph.cut(cut)) is not None]
+        if zs:
+            z, ref = float(statistics.median(zs)), "cut"
+        else:
+            z, ref = ph.z0(s.width, h, t, st.er, inner=s.layer not in OUTER), "assumed"
+        nets[net].update(
+            z0_ohm=z,
+            width_mm=s.width,
+            layer=s.layer,
+            reference=ref,
+            n_cuts=len(cuts),
+            n_with_reference=len(zs),
+        )
         cls = c.net_class(net)
         if cls == "diff":
             gaps = [

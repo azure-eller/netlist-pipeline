@@ -4,8 +4,8 @@ children of it, datasets are lists of it.
 
 `extract` cuts the window out of a board and re-origins it at the box corner so the same local
 geometry anywhere on any board hashes the same. `cuts` takes perpendicular cross-sections along
-the target net: the 2D input a cross-section solver understands. `label` solves the target
-conductor alone with the existing microstrip solver; neighbours are recorded, not yet solved.
+the target net: the 2D input a cross-section solver understands. `label` solves every
+conductor in the cut together (`fields.solve_cut`, FACTORY.md step 2).
 """
 
 from __future__ import annotations
@@ -95,6 +95,10 @@ class Cut:
     @property
     def target(self) -> Conductor:
         return next(c for c in self.conductors if c.offset == 0.0)
+
+    @staticmethod
+    def from_json(d: dict[str, Any]) -> Cut:
+        return Cut(**{**d, "conductors": tuple(Conductor(**c) for c in d["conductors"])})
 
 
 def _r(v: float) -> float:
@@ -323,19 +327,19 @@ def _plane(window: Window, layer_index: int, p: Point) -> bool:
     return any(z.layer == layer and _contains(z.polygon, p) for z in window.zones)
 
 
-def label(cut: Cut) -> fields.LineParams | None:
-    """Target conductor alone over its reference plane. None without a plane: no reference,
-    no characteristic impedance. Neighbours wait for the general solver (FACTORY.md step 2)."""
-    if not (cut.plane_below or cut.plane_above):
-        return None
-    return fields.solve(fields.Geometry(w=cut.target.width, h=cut.h, t=cut.t, er=cut.er))
+def label(cut: Cut) -> fields.CutParams | None:
+    """Every conductor in the cut solved together: the target's z0 with the plane and the
+    neighbours at 0 V, and its coupling to each neighbour. None when there is no plane and no
+    neighbour: nothing to measure against."""
+    return fields.solve_cut(cut)
 
 
-def aggregate(labels: list[fields.LineParams | None]) -> dict[str, float | int | None]:
+def aggregate(labels: list[fields.CutParams | None]) -> dict[str, float | int | None]:
     z = [p.z0 for p in labels if p is not None]
     return {
         "n_cuts": len(labels),
-        "n_with_plane": len(z),
+        "n_with_reference": len(z),
+        "n_with_plane": sum(1 for p in labels if p is not None and p.plane),
         "z0_mean": sum(z) / len(z) if z else None,
         "z0_min": min(z) if z else None,
         "z0_max": max(z) if z else None,

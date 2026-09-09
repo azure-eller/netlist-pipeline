@@ -83,6 +83,18 @@ def test_sample_is_deterministic_and_in_range() -> None:
     assert 200 <= sum(g.s is not None for g in a) <= 300
 
 
+def test_sample_cut_is_deterministic_with_a_reference_and_no_overlap() -> None:
+    rng, again = random.Random(3), random.Random(3)
+    cuts = [data.sample_cut(rng) for _ in range(300)]
+    assert cuts == [data.sample_cut(again) for _ in range(300)]
+    assert any(len(c.conductors) == 5 for c in cuts) and any(not c.plane_below for c in cuts)
+    for c in cuts:
+        assert c.plane_below or len(c.conductors) > 1
+        assert c.target.offset == 0.0 and c.target.net == "T"
+        edges = [(x.offset - x.width / 2, x.offset + x.width / 2) for x in c.conductors]
+        assert all(a[1] < b[0] for a, b in zip(edges, edges[1:], strict=False)), c
+
+
 def test_shard_job_writes_object_and_row(conn: psycopg.Connection) -> None:
     dataset_id = new_dataset(conn)
     data.run_job(conn, jobs.Job(0, "data:shard", {"dataset_id": dataset_id, "shard": 1}, 1))

@@ -2,6 +2,7 @@
 """Data factory (docs/FACTORY.md). Step 1: boards in, windows with labels out.
 
     scripts/factory.py add-board PATH [--source fixture] [--family NAME]
+    scripts/factory.py add-runs            # every routed candidate in `candidates`
     scripts/factory.py windows (BOARD_ID | --all) [--wait]
     scripts/factory.py boards
     scripts/factory.py show GEOMETRY_HASH
@@ -49,6 +50,47 @@ def add_board(conn: psycopg.Connection, a: argparse.Namespace) -> None:
         board_id = int(cur.fetchone()[0])  # type: ignore[index]
     conn.commit()
     print(board_id)
+
+
+FAMILY = {"pic": "pic_programmer", "rpi": "rpi_hat"}
+
+
+def add_runs(conn: psycopg.Connection, a: argparse.Namespace) -> None:
+    """Every routed candidate of every run as a board, family = the design it came from
+    (FACTORY.md step 3: our own placer and router as a board source)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "select c.run_id, c.seed, c.board_key, d.filename from candidates c "
+            "join runs r on r.id = c.run_id join designs d on d.id = r.design_id "
+            "where c.board_key like '%%routed.kicad_pcb' order by c.id"
+        )
+        rows = cur.fetchall()
+    added = 0
+    for run_id, seed, key, filename in rows:
+        family = next((f for k, f in FAMILY.items() if filename.lower().startswith(k)), None)
+        if family is None:
+            print(f"run {run_id}: design {filename!r} has no known family; skipped")
+            continue
+        data = storage.get(key)
+        b = board.parse(data.decode())
+        with conn.cursor() as cur:
+            cur.execute(
+                "insert into boards (source, path, sha256, object_key, family, n_layers, n_nets, "
+                "stackup) values ('run', %s, %s, %s, %s, %s, %s, %s) on conflict (sha256) "
+                "do nothing returning id",
+                (
+                    f"run {run_id} seed {seed}",
+                    storage.sha256(data),
+                    key,
+                    family,
+                    len(b.copper_layers),
+                    len({s.net for s in b.segments if s.net}),
+                    json.dumps(asdict(b.stackup)),
+                ),
+            )
+            added += cur.fetchone() is not None
+    conn.commit()
+    print(f"{added} boards added from {len(rows)} routed candidates")
 
 
 def enqueue_windows(conn: psycopg.Connection, a: argparse.Namespace) -> None:
@@ -138,6 +180,7 @@ def main() -> None:
     p.add_argument("--source", default="fixture")
     p.add_argument("--family")
     p.set_defaults(fn=add_board)
+    sub.add_parser("add-runs").set_defaults(fn=add_runs)
     p = sub.add_parser("windows")
     p.add_argument("board_id", type=int, nargs="?")
     p.add_argument("--all", action="store_true")

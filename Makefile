@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 export PYTHONPATH := src
 
-.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge dataset train-surrogate factory-windows build
+.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge dataset train-surrogate train-cutnet factory-windows build
 
 up:            ## start Postgres + MinIO
 	docker compose up -d postgres minio
@@ -28,11 +28,14 @@ golden:         ## run a judge against the golden set (JUDGE_URL optional)
 train-judge:    ## distill the rule judge into models/judge-v2.joblib and upload it
 	$(PY) scripts/train_judge.py
 
-dataset:        ## make dataset SHARDS=4 N=1250 : solve synthetic cross-sections through the queue
-	$(PY) scripts/dataset.py create --shards $(or $(SHARDS),4) --per-shard $(or $(N),1250) --seed $(or $(SEED),0)
+dataset:        ## make dataset [KIND=cut] SHARDS=4 N=1250 : solve synthetic cross-sections through the queue
+	$(PY) scripts/dataset.py create --kind $(or $(KIND),cross-section) --shards $(or $(SHARDS),4) --per-shard $(or $(N),1250) --seed $(or $(SEED),0)
 
 train-surrogate: ## make train-surrogate DATASET=<id> VERSION=v5
 	$(PY) scripts/train_surrogate.py --dataset $(DATASET) --version $(or $(VERSION),v5)
+
+train-cutnet:   ## make train-cutnet DATASET=<id> VERSION=v6 [REAL=pic_programmer] [MODEL=gbr]
+	$(PY) scripts/train_cutnet.py --dataset $(DATASET) --version $(or $(VERSION),v6) --real $(or $(REAL),none) --model $(or $(MODEL),cutnet)
 
 factory-windows: ## window every board in `boards` through the queue (docs/FACTORY.md)
 	$(PY) scripts/factory.py windows --all --wait

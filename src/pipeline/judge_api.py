@@ -59,6 +59,10 @@ def load() -> None:
         from pipeline.surrogate import Learned
 
         PHYSICS["provider"] = Learned(artifact)
+    elif artifact.get("kind") == "cutnet":  # the cut model: neighbours, plane or not
+        from pipeline.cutnet import Learned as CutLearned
+
+        PHYSICS["provider"] = CutLearned(artifact)
 
 
 @asynccontextmanager

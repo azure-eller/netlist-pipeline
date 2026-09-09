@@ -8,9 +8,12 @@ two calls as `pipeline.physics.Formula`."""
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from pipeline.windows import Cut
 
 FEATURE_VERSION = "features-0.1"  # bump when any feature function below changes
 SINGLE_FEATURES = ("log_w", "log_h", "log_t", "er", "log_w_over_h")
@@ -52,3 +55,7 @@ class Learned:
     def zdiff(self, w: float, s: float, h: float, t: float, er: float, inner: bool) -> float:
         z_odd, _ = self.pair.predict(np.array([pair_features(w, h, t, er, s)]))[0]
         return float(2 * z_odd)
+
+    def cut(self, c: Cut) -> float | None:
+        """Target alone over an assumed plane: this model knows no neighbours."""
+        return self.z0(c.target.width, c.h, c.t, c.er, inner=c.layer not in ("F.Cu", "B.Cu"))

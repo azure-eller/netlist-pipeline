@@ -4,7 +4,7 @@ import types
 
 import pytest
 
-from pipeline import judge
+from pipeline import judge, windows
 from pipeline.models import (
     Board,
     Component,
@@ -155,3 +155,29 @@ def test_judge_api_auth_and_score(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ok.status_code == 200
     assert ok.json()["score"] == 0.0
     assert client.get("/healthz").json() == {"status": "ok"}
+
+
+def test_impedance_rule_asks_the_provider_for_each_cut_and_says_so() -> None:
+    class Cuts:
+        name, version = "fake", "0"
+
+        def z0(self, w: float, h: float, t: float, er: float, inner: bool) -> float:
+            return 50.0
+
+        def zdiff(self, w: float, s: float, h: float, t: float, er: float, inner: bool) -> float:
+            return 100.0
+
+        def cut(self, c: windows.Cut) -> float | None:
+            return 75.0 if c.target.width == 0.3 else None
+
+    c = Constraints(classes={"CLK": "high_speed"})
+    r = judge.score(clk_board(0.3), netlist({"CLK": ["U1.1", "R1.1"]}), c, physics=Cuts())
+    m = r.metrics["nets"]["CLK"]
+    assert (m["z0_ohm"], m["reference"]) == (75.0, "cut") and m["n_with_reference"] == m[
+        "n_cuts"
+    ] > 0
+    assert "impedance" in rules(r)  # 75 against 50
+    r = judge.score(clk_board(0.5), netlist({"CLK": ["U1.1", "R1.1"]}), c, physics=Cuts())
+    m = r.metrics["nets"]["CLK"]
+    assert (m["z0_ohm"], m["reference"], m["n_with_reference"]) == (50.0, "assumed", 0)
+    assert "impedance" not in rules(r)
