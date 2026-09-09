@@ -8,19 +8,12 @@ behind one HTTP contract, and a golden set decides whether the worker accepts it
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    client([client]) -->|POST /designs| api[api<br/>FastAPI]
-    api --> pg[(Postgres<br/>designs, runs, jobs,<br/>stages, nets, candidates,<br/>verifications, artifacts)]
-    api --> s3[(S3<br/>uploads, boards,<br/>reports, gerbers)]
-    worker[worker<br/>kicad-cli, pcbnew,<br/>Freerouting] -->|claim job<br/>SKIP LOCKED| pg
-    worker --> s3
-    client -->|GET /runs/id| api
-```
+![One run through the system](docs/media/system.png)
 
 Two containers from one image, a managed Postgres, and a bucket. The API never does work that
-takes more than a second; it writes a job row and the worker picks it up. Locally, `docker
-compose` runs the same layout with MinIO standing in for S3.
+takes more than a second: it writes a job row and the worker claims it. The worker runs the
+eight stages one job at a time, each in a child interpreter, and the judge stage calls a
+separate judge service over HTTP. That service is the model slot.
 
 ## The eight stages
 
@@ -57,6 +50,25 @@ table. The run itself is a hash chain: every stage's input hash is an earlier st
 hash, drawn here for one run by `scripts/provenance.py`.
 
 ![Provenance graph for run 79](docs/media/provenance_79.png)
+
+## The learned physics model
+
+The judge's rules are fixed. Where the impedance numbers inside them come from is a provider,
+and one of the three is a model we trained: `learned-fd v5`, gradient boosting on 5,000
+cross-sections solved by our own 2D field solver, answering in microseconds what the solver
+answers in a third of a second.
+
+![How the model is made, gated and served](docs/media/model.png)
+
+Every step is a row. The dataset names its sampler, solver and seed. The model row names the
+dataset, the artifact bytes, the feature encoding, the library version and the commit. The
+approval row names the golden set it passed. None of those rows can be edited, and every
+verdict the pipeline writes records which bytes produced it.
+
+![learned-fd v5 against the field solver](docs/media/surrogate_v5.png)
+
+Three earlier learned judges were refused by the golden gate on a deliberately broken board.
+The record is in [docs/experiments](docs/experiments/README.md).
 
 ## Run it
 
