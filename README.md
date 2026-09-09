@@ -19,6 +19,22 @@ verified. About forty seconds.
 
 ![RPi HAT generated from its schematic](docs/rpi_hat_generated.png)
 
+## Architecture
+
+```mermaid
+flowchart LR
+    client([client]) -->|POST /designs| api[api<br/>FastAPI]
+    api --> pg[(Postgres<br/>designs, runs, jobs,<br/>stages, nets, candidates,<br/>verifications, artifacts)]
+    api --> s3[(S3<br/>uploads, boards,<br/>reports, gerbers)]
+    worker[worker<br/>kicad-cli, pcbnew,<br/>Freerouting] -->|claim job<br/>SKIP LOCKED| pg
+    worker --> s3
+    client -->|GET /runs/id| api
+```
+
+Two containers from one image, a managed Postgres, and a bucket. The API never does work that
+takes more than a second; it writes a job row and the worker picks it up. Locally, `docker
+compose` runs the same layout with MinIO standing in for S3.
+
 ## The eight stages
 
 ```
@@ -45,22 +61,6 @@ by `scripts/provenance.py`. Every green arrow is one stage's output hash equal t
 stage's input hash.
 
 ![Provenance graph for run 79](docs/media/provenance_79.png)
-
-## Architecture
-
-```mermaid
-flowchart LR
-    client([client]) -->|POST /designs| api[api<br/>FastAPI]
-    api --> pg[(Postgres<br/>designs, runs, jobs,<br/>stages, nets, candidates,<br/>verifications, artifacts)]
-    api --> s3[(S3<br/>uploads, boards,<br/>reports, gerbers)]
-    worker[worker<br/>kicad-cli, pcbnew,<br/>Freerouting] -->|claim job<br/>SKIP LOCKED| pg
-    worker --> s3
-    client -->|GET /runs/id| api
-```
-
-Two containers from one image, a managed Postgres, and a bucket. The API never does work that
-takes more than a second; it writes a job row and the worker picks it up. Locally, `docker
-compose` runs the same layout with MinIO standing in for S3.
 
 ## Run it
 
