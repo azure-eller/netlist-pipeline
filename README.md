@@ -15,7 +15,6 @@ flowchart LR
     api --> s3[(S3<br/>uploads, boards,<br/>reports, gerbers)]
     worker[worker<br/>kicad-cli, pcbnew,<br/>Freerouting] -->|claim job<br/>SKIP LOCKED| pg
     worker --> s3
-    worker -->|POST /v1/score| judge[judge service<br/>rules + physics model]
     client -->|GET /runs/id| api
 ```
 
@@ -25,7 +24,7 @@ eight stages one job at a time, and the judge stage calls a separate judge servi
 That service is the model slot.
 
 <details>
-<summary><b>Detailed architecture</b>: the stages inside the worker, the judge service and its physics providers, the registry rows and the gate (click to expand; click the image for full size)</summary>
+<summary>Detailed architecture</summary>
 
 ![One run through the system](docs/media/system.png)
 

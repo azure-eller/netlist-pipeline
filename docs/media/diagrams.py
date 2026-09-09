@@ -9,10 +9,10 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.patches import FancyBboxPatch  # noqa: E402
+from matplotlib.patches import Ellipse, FancyBboxPatch, Rectangle  # noqa: E402
 
 OUT = Path(__file__).parent
-F = 1.25  # type scale: GitHub shows the image at ~900 px wide, so text has to be big
+F = 1.3  # type scale: GitHub shows the image at ~900 px wide, so text has to be big
 BG, BLUE, BLUE_FC, ORANGE, ORANGE_FC = "#0f1115", "#4f8fe6", "#16213a", "#d9822b", "#2a2320"
 GREEN, GREEN_FC, GOLD, GOLD_FC, GREY, TXT, SUB = (
     "#4caf50", "#1f2a1f", "#e6d54a", "#2a2a1a", "#8fa3bf", "#ffffff", "#9fb3d1",
@@ -29,6 +29,18 @@ def box(ax, x1, y1, x2, y2, title, body="", fc=BLUE_FC, ec=BLUE, ts=9, bs=7.2, l
         ax.text(cx, y1 + (y2 - y1 - 3.2) / 2, body, color=SUB, ha="center", va="center", fontsize=bs * F)
     else:
         ax.text(cx, (y1 + y2) / 2, title, color=TXT, ha="center", va="center", fontsize=ts * F, weight="bold")
+
+
+def cyl(ax, x1, y1, x2, y2, title, body, fc, ec, ts=8.5, bs=6.6, e=3.2):
+    """A database cylinder: body, bottom rim, top ellipse."""
+    w, cx = x2 - x1, (x1 + x2) / 2
+    ax.add_patch(Ellipse((cx, y1 + e / 2), w, e, fc=fc, ec=ec, lw=1.3))
+    ax.add_patch(Rectangle((x1, y1 + e / 2), w, y2 - y1 - e, fc=fc, ec="none"))
+    ax.plot([x1, x1], [y1 + e / 2, y2 - e / 2], color=ec, lw=1.3)
+    ax.plot([x2, x2], [y1 + e / 2, y2 - e / 2], color=ec, lw=1.3)
+    ax.add_patch(Ellipse((cx, y2 - e / 2), w, e, fc=fc, ec=ec, lw=1.3))
+    ax.text(cx, y2 - e - 1.2, title, color=TXT, ha="center", va="top", fontsize=ts * F, weight="bold")
+    ax.text(cx, y1 + (y2 - y1 - e - 3) / 2 + 0.5, body, color=SUB, ha="center", va="center", fontsize=bs * F)
 
 
 def frame(ax, x1, y1, x2, y2, title, ec, fc="none", ts=10):
@@ -64,66 +76,66 @@ def canvas(w, h, xmax, ymax):
 
 
 def system() -> None:
-    fig, ax = canvas(16, 9.6, 160, 96)
-    ax.text(2, 94, "netlist-pipeline: one run through the system", color=TXT, fontsize=13, weight="bold", va="top")
+    # portrait: GitHub shows a README image at ~900 px wide, so a tall layout reads larger
+    fig, ax = canvas(10, 15, 100, 150)
+    ax.text(2, 148.5, "one run through the system", color=TXT, fontsize=13, weight="bold", va="top")
 
-    # row A: client, api, stores
-    box(ax, 3, 78, 24, 90, "client", "uploads a schematic\n(or a finished board),\npolls, fetches artifacts", fc="#2b2b2b", ec="#cfd8dc", bs=6.6)
-    box(ax, 30, 78, 66, 90, "api  (FastAPI)", "POST /designs → store, insert run + first job\nGET /runs/{id} → the rows\nGET …/artifacts/{name} → presigned redirect", bs=5.8)
-    box(ax, 76, 78, 106, 90, "Postgres", "designs · runs · jobs · stages\ncandidates · verifications · artifacts\nmodels · judge_approvals", fc=ORANGE_FC, ec=ORANGE, bs=6.2)
-    box(ax, 118, 78, 154, 90, "S3  (MinIO locally)", "designs/<sha>/…\nruns/<id>/…\nmodels/judge/<version>-<sha>.joblib", fc=ORANGE_FC, ec=ORANGE, bs=6.2)
-    arrow(ax, (24, 84), (30, 84))
-    arrow(ax, (66, 84), (76, 84))
-    label(ax, 71, 86.2, "run + first job", size=5.4)
-    arrow(ax, (47, 78), (136, 78), rad=0.22)
-    label(ax, 91, 71.5, "upload bytes", size=6.5)
+    box(ax, 2, 130, 24, 142, "client", "uploads a schematic\n(or a finished board),\npolls, fetches artifacts", fc="#2b2b2b", ec="#cfd8dc", ts=8.5, bs=6.6, pad=1.2)
+    box(ax, 30, 130, 72, 142, "api  (FastAPI)", "POST /designs → store, insert run + first job\nGET /runs/{id} → the rows\nGET …/artifacts/{name} → presigned redirect", ts=8.5, bs=6.4)
+    arrow(ax, (24, 136), (30, 136))
+    cyl(ax, 2, 106, 46, 124, "Postgres", "designs · runs · jobs · stages\ncandidates · verifications · artifacts\nmodels · judge_approvals", fc=ORANGE_FC, ec=ORANGE)
+    cyl(ax, 52, 106, 96, 124, "S3  (MinIO locally)", "designs/<sha>/…\nruns/<id>/…\nmodels/judge/<version>-<sha>.joblib", fc=ORANGE_FC, ec=ORANGE)
+    arrow(ax, (40, 130), (30, 124), rad=0.1)
+    label(ax, 27.5, 126.5, "run + first job", size=5.8, ha="right")
+    arrow(ax, (62, 130), (72, 124), rad=-0.1)
+    label(ax, 74, 126.5, "upload bytes", size=5.8, ha="left")
 
-    # row B: worker
-    frame(ax, 3, 38, 157, 66, "worker  — one job at a time, each in a child interpreter", BLUE, fc="#111827", ts=9)
-    box(ax, 6, 44, 30, 58, "job loop", "claim a queued job\n(SKIP LOCKED)\nrun its stage\nenqueue the next stage")
-    frame(ax, 33, 41, 154, 61, "the eight stages: one jobs row and one stages row each, chained by sha256", "#2f4f6f", fc="#0f1a2e", ts=7.5)
+    frame(ax, 2, 50, 96, 100, "worker  — one job at a time, each in a child interpreter", BLUE, fc="#111827", ts=9)
+    box(ax, 5, 74, 30, 92, "job loop", "claim a queued job\n(SKIP LOCKED)\nrun its stage in a\nchild interpreter\nenqueue the next stage", ts=8.5, bs=6.4)
+    frame(ax, 34, 53, 94, 96, "the eight stages: one jobs row and\none stages row each, chained by sha256", "#2f4f6f", fc="#0f1a2e", ts=7.6)
     stages = [
         ("1 extract_netlist", "kicad-cli"), ("2 constraints", "classes + patterns"),
-        ("3  build_board", "pcbnew"), ("4  place", "simulated annealing"), ("5  route", "Freerouting"),
-        ("6  judge", "the model slot"), ("7  verify", "DRC + netlist parity"), ("8 export", "gerbers, drill, png"),
+        ("3 build_board", "pcbnew"), ("4 place", "annealing"), ("5 route", "Freerouting"),
+        ("6 judge", "the model slot"), ("7 verify", "DRC + netlist parity"), ("8 export", "gerbers, drill, png"),
     ]  # fmt: skip
-    xs = []
+    pos = []
     for i, (t, b) in enumerate(stages):
-        x1 = 35 + i * 14.75
-        xs.append((x1, x1 + 13.25))
+        row, col = divmod(i, 4)
+        x1 = 36.5 + col * 14.5
+        y1 = 74 - row * 17
+        pos.append((x1, y1, x1 + 13, y1 + 11))
         slot = i == 5
-        box(ax, x1, 45, x1 + 13.25, 55, t, b, fc=GREEN_FC if slot else "#1b2d4f", ec=GREEN if slot else BLUE, ts=7, bs=5.8)
-        if i:
-            arrow(ax, (xs[i - 1][1], 50), (x1, 50))
-    arrow(ax, (18, 58), (18, 78))
-    label(ax, 19, 68, "claim", size=6.5, ha="left")
-    arrow(ax, (95, 61), (95, 78))
-    label(ax, 97, 69.5, "stage rows: tool, version,\ninput_hash, output_hash", size=6.3, ha="left")
-    arrow(ax, (126, 61), (126, 78))
-    label(ax, 128, 69.5, "netlist, boards,\nreport, gerbers", size=6.3, ha="left")
+        box(ax, x1, y1, x1 + 13, y1 + 11, t, b, fc=GREEN_FC if slot else "#1b2d4f", ec=GREEN if slot else BLUE, ts=6.3, bs=5.1)
+        if i in (1, 2, 3, 5, 6, 7):
+            arrow(ax, (pos[i - 1][2], y1 + 5.5), (x1, y1 + 5.5))
+    poly(ax, [((pos[3][0] + pos[3][2]) / 2, pos[3][1]), ((pos[3][0] + pos[3][2]) / 2, 71.5), ((pos[4][0] + pos[4][2]) / 2, 71.5), ((pos[4][0] + pos[4][2]) / 2, pos[4][3])])
+    arrow(ax, (17, 92), (17, 106))
+    label(ax, 18, 103, "claim", size=5.8, ha="left")
+    arrow(ax, (40, 96), (40, 106))
+    label(ax, 41, 102, "stage rows: tool, version,\ninput_hash, output_hash", size=5.4, ha="left")
+    arrow(ax, (74, 96), (74, 106))
+    label(ax, 75, 102, "netlist, boards,\nreport, gerbers", size=5.4, ha="left")
 
-    # row C: registry + judge service
-    box(ax, 4, 8, 34, 30, "registry  (rows in Postgres)", "models: name, version, dataset,\nartifact key + sha256, feature\nencoding, sklearn, commit\n\njudge_approvals: name, version,\nartifact sha, golden-set sha\n\nboth immutable", fc=GOLD_FC, ec=GOLD, bs=6, ts=8)
-    frame(ax, 40, 3, 157, 33, "judge service  (JUDGE_URL, one versioned judge per process)", GREEN, fc="#0f1a14", ts=9)
-    box(ax, 44, 10, 78, 26, "rule judge", "IPC-2141 impedance\nIPC-2221 current capacity\ndecoupling · crosstalk · vias\nscore = −Σ weighted excess", bs=6)
-    frame(ax, 83, 6, 154, 29, "physics provider  (where the impedance numbers come from)", "#2e6b3a", fc="#0d1a12", ts=7.5)
-    box(ax, 86, 10, 106, 23, "formula", "IPC-2141 closed form\nmicroseconds", ts=8, bs=6)
-    box(ax, 109, 10, 129, 23, "oracle", "our 2D field solver\n0.36 s per geometry", ts=8, bs=6)
-    box(ax, 132, 10, 152, 23, "learned-fd v5", "trained on the oracle\nµs, 0.9% error", fc=GOLD_FC, ec=GOLD, ts=8, bs=6)
-    arrow(ax, (78, 18), (86, 18))
-    label(ax, 82, 24.2, "z0 of every\nhigh-speed net", size=5.4)
+    cyl(ax, 2, 4, 30, 42, "registry\n(rows in Postgres)", "models: name, version,\ndataset, artifact key + sha,\nfeature encoding,\nsklearn, commit\n\njudge_approvals: name,\nversion, artifact sha,\ngolden-set sha\n\nboth immutable", fc=GOLD_FC, ec=GOLD, ts=8, bs=6.2)
+    frame(ax, 34, 2, 96, 44, "judge service  (JUDGE_URL,\none versioned judge per process)", GREEN, fc="#0f1a14", ts=8.5)
+    box(ax, 37, 21, 66, 36, "rule judge", "IPC-2141 impedance\nIPC-2221 current capacity\ndecoupling · crosstalk · vias\nscore = −Σ weighted excess", ts=8, bs=5.6)
+    frame(ax, 37, 4, 94, 19, "physics provider  (where the impedance numbers come from)", "#2e6b3a", fc="#0d1a12", ts=6)
+    box(ax, 39, 5.5, 56, 14.5, "formula", "IPC-2141 closed form\nmicroseconds", ts=7, bs=5.6)
+    box(ax, 58, 5.5, 75, 14.5, "oracle", "our 2D field solver\n0.36 s per geometry", ts=7, bs=5.6)
+    box(ax, 77, 5.5, 94, 14.5, "learned-fd v5", "trained on the oracle\nµs, 0.9% error", fc=GOLD_FC, ec=GOLD, ts=7, bs=5.6)
+    arrow(ax, (51.5, 21), (51.5, 19))
+    label(ax, 53, 20.5, "z0 of every high-speed net", size=5.4, ha="left")
 
-    # the slot, the gate, the bytes
-    sx = (xs[5][0] + xs[5][1]) / 2
-    arrow(ax, (sx, 45), (sx, 33), color=GREEN, lw=1.6)
-    label(ax, sx + 1.2, 39, "POST /v1/score (board, netlist, constraints)\n← score, violations, judge {name, version, sha}", color="#8fbf8f", size=5.8, ha="left")
-    poly(ax, [(xs[5][0] + 1, 45), (xs[5][0] + 1, 36), (19, 36), (19, 30)], color=GOLD)
-    label(ax, 20.5, 33.3, "gate: (name, version, sha) must be an approval row", color=GOLD, size=5.6, ha="left")
-    poly(ax, [(34, 14), (38, 14), (38, 1.5), (142, 1.5), (142, 10)], color=GOLD)
-    label(ax, 92, 0.2, "the models row names the artifact key; the service refuses bytes whose sha256 differs", color=GOLD, size=5.8, va="bottom")
-    poly(ax, [(154, 81), (158.5, 81), (158.5, 16.5), (152, 16.5)], color=ORANGE)
-    label(ax, 159.3, 47, "artifact bytes", color=ORANGE, size=6.3, rot=90)
-    fig.savefig(OUT / "system.png", dpi=140, facecolor=BG, bbox_inches="tight")
+    sx = (pos[5][0] + pos[5][2]) / 2
+    arrow(ax, (sx, pos[5][1]), (sx, 44), color=GREEN, lw=1.6)
+    label(ax, sx + 1.5, 49.3, "POST /v1/score (board, netlist, constraints)\n← score, violations, judge {name, version, sha}", color="#8fbf8f", size=5, ha="left")
+    poly(ax, [(pos[5][0] + 1.5, pos[5][1]), (pos[5][0] + 1.5, 47), (16, 47), (16, 42)], color=GOLD)
+    label(ax, 3, 44.5, "gate: (name, version, sha)\nmust be an approval row", color=GOLD, size=5.4, ha="left")
+    poly(ax, [(16, 4), (16, 0.8), (85.5, 0.8), (85.5, 5.5)], color=GOLD)
+    label(ax, 50, -0.4, "the models row names the artifact key; the service refuses bytes whose sha256 differs", color=GOLD, size=5.4, va="top")
+    poly(ax, [(96, 114), (98.8, 114), (98.8, 10), (94, 10)], color=ORANGE)
+    label(ax, 99.6, 60, "artifact bytes", color=ORANGE, size=5.6, rot=90)
+    fig.savefig(OUT / "system.png", dpi=150, facecolor=BG, bbox_inches="tight")
 
 
 def model() -> None:
