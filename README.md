@@ -51,6 +51,12 @@ Any stage failure marks the run failed with the error text and stops. Verificati
 marks the run `failed_verification` and still keeps the artifacts for inspection. The judge
 picks the best candidate; only verify decides whether the run passed.
 
+![Simulated annealing placing the pic_programmer](docs/media/anneal.gif)
+
+*Stage 4 on KiCad's 63-part `pic_programmer` demo: parts start on the build_board grid and the
+annealer trades weighted wire length against courtyard overlap while the temperature falls.
+Orange nets are power, blue are high speed. 85,500 moves, 69 seconds, same final cost as run 36.*
+
 ## A run
 
 ```
@@ -78,6 +84,13 @@ The two findings are real: the client's `constraints.json` said the rails carry 
 router used 0.2 mm traces. Same board judged by hand-placed reference, `pic_programmer`,
 KiCad's own demo with a human-routed board: verified, and the judge reports three decoupling
 capacitors farther from their IC pins than the 10 mm default.
+
+![Provenance graph for run 79](docs/media/provenance_79.png)
+
+*The same run as a hash graph, drawn from the `stages` and `artifacts` rows by
+`scripts/provenance.py 79`. Each green arrow is one stage's `output_hash` equal to the next
+stage's `input_hash`; judge, verify and export all hash the routed board. Artifacts hang under
+the stage whose output they are.*
 
 ## Run it
 
