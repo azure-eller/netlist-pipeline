@@ -156,7 +156,7 @@ def model() -> None:
     label(ax, 132, 45, "register", size=6)
 
     box(ax, 38, 6, 64, 20, "fresh check", "200 geometries drawn after training,\nsolved by the oracle:\nz0 0.9% mean error, z_diff 1.9%", bs=6.4)
-    box(ax, 72, 6, 96, 20, "golden set", "5 boards with expected scorecards,\n2 deliberately broken\nscripts/golden.py --judge-url …", fc=GREEN_FC, ec=GREEN, bs=6.4)
+    box(ax, 72, 6, 96, 20, "golden set", "7 boards with expected scorecards,\n2 deliberately broken\nscripts/golden.py --judge-url …", fc=GREEN_FC, ec=GREEN, bs=6.4)
     box(ax, 104, 6, 128, 20, "judge_approvals row", "name, version, artifact sha,\ngolden-set sha\n(immutable)", fc=GOLD_FC, ec=GOLD, bs=6.4)
     box(ax, 136, 6, 158, 20, "served", "the judge service loads the\nbytes the row names; the worker's\njudge stage checks the approval", fc=GREEN_FC, ec=GREEN, bs=6.2)
     poly(ax, [(116, 36), (116, 27), (51, 27), (51, 20)])
@@ -172,7 +172,92 @@ def model() -> None:
     fig.savefig(OUT / "model.png", dpi=140, facecolor=BG, bbox_inches="tight")
 
 
+def field() -> None:
+    """docs/media/field.png: the cross-section the solver sees, and the voltage it finds."""
+    import numpy as np
+    import scipy.sparse as sp
+    from scipy.sparse.linalg import spsolve
+
+    from pipeline import fields
+
+    g = fields.Geometry(w=0.35, h=0.2, t=0.035, er=4.2)
+    x, y = fields._grid(g, 400, 200)
+    xx, yy = np.meshgrid(x, y, indexing="ij")
+    on = (yy >= g.h - fields.TOL) & (yy <= g.h + g.t + fields.TOL)
+    trace = on & (np.abs(xx) <= g.w / 2 + fields.TOL)
+    fixed = (yy == 0) | trace
+    # same assembly as fields._energy2, kept here because that function returns energy, not phi
+    dx, dy = np.diff(x), np.diff(y)
+    yc = (y[:-1] + y[1:]) / 2
+    eps = np.broadcast_to(np.where(yc < g.h, g.er, 1.0), (len(dx), len(dy)))
+    ex, ey = eps * dy, eps * dx[:, None]
+    gx = (np.pad(ex, ((0, 0), (1, 0))) + np.pad(ex, ((0, 0), (0, 1)))) / 2 / dx[:, None]
+    gy = (np.pad(ey, ((1, 0), (0, 0))) + np.pad(ey, ((0, 1), (0, 0)))) / 2 / dy
+    idx = np.arange(len(x) * len(y)).reshape(len(x), len(y))
+    a = np.concatenate([idx[:-1, :].ravel(), idx[:, :-1].ravel()])
+    b = np.concatenate([idx[1:, :].ravel(), idx[:, 1:].ravel()])
+    gg = np.concatenate([gx.ravel(), gy.ravel()])
+    n = idx.size
+    k = sp.coo_matrix(
+        (np.concatenate([gg, gg, -gg, -gg]), (np.concatenate([a, b, a, b]), np.concatenate([a, b, b, a]))),
+        shape=(n, n),
+    ).tocsr()
+    phi = trace.astype(float).ravel()
+    fix, free = fixed.ravel(), ~fixed.ravel()
+    phi[free] = spsolve(k[free][:, free].tocsc(), -(k[free][:, fix] @ phi[fix]))
+    phi = phi.reshape(len(x), len(y))
+    p = fields.solve(g)
+
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(13, 5.0), facecolor=BG, gridspec_kw={"width_ratios": [1, 1.18]})
+    for ax in (a1, a2):
+        ax.set_facecolor(BG)
+        for sp_ in ax.spines.values():
+            sp_.set_color(GREY)
+        ax.tick_params(colors=SUB, labelsize=7 * F)
+        ax.set_xlabel("mm", color=SUB, fontsize=7 * F)
+
+    # left: what the solver is given
+    W = 0.62
+    a1.set_xlim(-W, W); a1.set_ylim(-0.06, 0.62); a1.set_aspect("equal")
+    a1.add_patch(Rectangle((-W, -0.06), 2 * W, 0.06, fc="#c98a3a", ec="none"))
+    a1.add_patch(Rectangle((-W, 0), 2 * W, g.h, fc="#25402a", ec="none"))
+    a1.add_patch(Rectangle((-W, g.h), 2 * W, 0.62 - g.h, fc=BG, ec="none"))
+    a1.add_patch(Rectangle((-g.w / 2, g.h), g.w, g.t, fc="#e6a24a", ec="none"))
+    a1.text(0, g.h + g.t + 0.03, "trace  (1 volt)", color=TXT, ha="center", fontsize=8 * F, weight="bold")
+    a1.text(0, g.h / 2, f"board material, er = {g.er}", color="#bfe0c4", ha="center", va="center", fontsize=7.5 * F)
+    a1.text(0, -0.03, "ground plane  (0 volt)", color="#3a2a12", ha="center", va="center", fontsize=7.5 * F, weight="bold")
+    a1.text(0, 0.5, "air, er = 1", color=SUB, ha="center", fontsize=7.5 * F)
+    a1.annotate("", (-g.w / 2, g.h + g.t + 0.012), (g.w / 2, g.h + g.t + 0.012), arrowprops=dict(arrowstyle="<->", color=GOLD, lw=1.2))
+    a1.text(0, g.h + g.t + 0.09, f"w = {g.w} mm", color=GOLD, ha="center", fontsize=7.5 * F)
+    a1.annotate("", (0.42, 0), (0.42, g.h), arrowprops=dict(arrowstyle="<->", color=GOLD, lw=1.2))
+    a1.text(0.45, g.h / 2, f"h = {g.h} mm", color=GOLD, va="center", fontsize=7.5 * F)
+    a1.annotate(f"t = {g.t} mm", (-g.w / 2, g.h + g.t / 2), (-0.5, 0.32), color=GOLD, fontsize=7.5 * F, ha="center", arrowprops=dict(arrowstyle="->", color=GOLD, lw=1.0))
+    a1.set_title("what the solver is given: a slice across the trace", color=TXT, fontsize=9 * F, pad=10)
+
+    # right: what it computes
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    a2.set_xlim(-W, W); a2.set_ylim(0, 0.62); a2.set_aspect("equal")
+    m = a2.pcolormesh(X, Y, phi, cmap="magma", vmin=0, vmax=1, shading="gouraud", rasterized=True)
+    a2.contour(X, Y, phi, levels=np.linspace(0.1, 0.9, 9), colors="white", linewidths=0.5, alpha=0.6)
+    a2.axhline(g.h, color="#bfe0c4", lw=0.8, ls="--", alpha=0.7)
+    a2.text(-W + 0.03, g.h + 0.015, "board / air boundary", color="#bfe0c4", fontsize=6.5 * F)
+    a2.add_patch(Rectangle((-g.w / 2, g.h), g.w, g.t, fc="none", ec="white", lw=0.8))
+    cb = fig.colorbar(m, ax=a2, fraction=0.05, pad=0.03, shrink=0.75)
+    cb.set_label("volts", color=SUB, fontsize=7 * F); cb.ax.tick_params(colors=SUB, labelsize=6.5 * F)
+    a2.set_title(
+        f"what it computes: the voltage at every grid point  →  z0 = {p.z0:.1f} ohm",
+        color=TXT, fontsize=9 * F, pad=10,
+    )
+    fig.suptitle(
+        "the 2D field solver: impedance from the electric field around one cross-section",
+        color=TXT, fontsize=10.5 * F, weight="bold", y=0.99,
+    )
+    fig.tight_layout()
+    fig.savefig(OUT / "field.png", dpi=140, facecolor=BG, bbox_inches="tight")
+
+
 if __name__ == "__main__":
     system()
     model()
+    field()
     print("ok")
