@@ -53,7 +53,7 @@ def main() -> None:
     ax.set_facecolor(BG)
     ax.axis("off")
     ax.set_xlim(-1.2, 2.2 * len(stages) + 0.8)
-    ax.set_ylim(-5.2, 2.2)
+    ax.set_ylim(-5.2, 2.6)
 
     def box(x: float, y: float, w: float, h: float, fc: str, ec: str) -> None:
         ax.add_patch(
@@ -148,9 +148,20 @@ def main() -> None:
                 ax.plot([x, x], [-0.55, y + 0.3], color="#e6d54a", lw=1)
     ax.text(
         -1.1,
+        2.25,
+        f"Provenance of run {run_id} ({mode} mode): every stage's input hash is an earlier "
+        "stage's output hash",
+        color="#fff",
+        fontsize=12,
+        weight="bold",
+        ha="left",
+    )
+    ax.text(
+        -1.1,
         1.9,
-        f"run {run_id}  ·  {mode}  ·  every arrow is sha256(output) == sha256(next input); "
-        "green = verified equal from the stages table",
+        "green arrow = sha256 recorded by the next stage equals the sha256 this stage wrote;  "
+        "≠ = the stage hashed something else (shown by the arc);  "
+        "blobs = artifacts the API serves, under the stage that produced them",
         color="#aaa",
         fontsize=8,
         ha="left",
