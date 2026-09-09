@@ -200,7 +200,7 @@ class JudgeResult:
     score: float  # higher is better; 0 is "no violations"
     metrics: dict[str, Any]
     violations: list[Violation]
-    judge: dict[str, str]  # {"name": ..., "version": ...}
+    judge: dict[str, str | None]  # {"name", "version", optional "artifact_sha256"}
 
     def to_json(self) -> dict[str, Any]:
         return asdict(self)

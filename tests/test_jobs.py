@@ -39,3 +39,15 @@ def test_stale_running_job_is_requeued(conn: psycopg.Connection) -> None:
     conn.commit()
     assert jobs.requeue_stale(conn) == 1
     assert jobs.claim(conn) is not None
+
+
+def test_models_rows_are_immutable(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            "insert into models (name, version, artifact_key, sha256) "
+            "values ('t', 'v0', 'models/judge/v0.joblib', 'x') returning id"
+        )
+        mid = cur.fetchone()[0]  # type: ignore[index]
+        with pytest.raises(psycopg.errors.RaiseException, match="immutable"):
+            cur.execute("update models set sha256 = 'y' where id = %s", (mid,))
+    conn.rollback()

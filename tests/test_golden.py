@@ -1,6 +1,5 @@
 import copy
 import importlib.util
-import json
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -45,21 +44,24 @@ def test_missing_c1_violation_fails_naming_c1(rules_run: tuple[ModuleType, Any, 
     assert not cases["pic_cap_far"]["ok"] and "C1" in cases["pic_cap_far"]["why"]
 
 
-def test_stage_refuses_unapproved_remote_version(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_stage_refuses_unapproved_remote_version(monkeypatch: pytest.MonkeyPatch) -> None:
     class Resp:
         def raise_for_status(self) -> None:
             pass
 
         def json(self) -> dict[str, Any]:
-            return {"name": "learned-gbr", "version": "v9", "capabilities": ["score"]}
+            return {"name": "learned-gbr", "version": "v9", "artifact_sha256": "ab" * 32}
 
     monkeypatch.setattr(httpx, "get", lambda *a, **k: Resp())
     monkeypatch.setattr(settings, "judge_url", "http://judge.test")
     monkeypatch.setattr(settings, "judge_version", "v9")
-    approved = tmp_path / "approved.json"
-    approved.write_text(json.dumps([{"name": "rules", "version": "0.1.0"}]))
-    monkeypatch.setattr(judge_stage, "APPROVED", approved)
+    asked: list[tuple[str, str, str | None]] = []
+
+    def approved(conn: Any, name: str, version: str, sha: str | None) -> bool:
+        asked.append((name, version, sha))
+        return False
+
+    monkeypatch.setattr(judge_stage, "approved", approved)
     with pytest.raises(RuntimeError, match="learned-gbr v9"):
-        judge_stage.remote_judge()
+        judge_stage.remote_judge(conn=None)
+    assert asked == [("learned-gbr", "v9", "ab" * 32)]  # the bytes, not just the name

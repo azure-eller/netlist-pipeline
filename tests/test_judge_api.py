@@ -73,7 +73,11 @@ def test_learned_info_and_score(learned_client: TestClient) -> None:
     assert len(info["artifact_sha256"]) == 64 and info["loaded_at"]
     r = learned_client.post("/v1/score", json=BODY).json()
     assert isinstance(r["score"], float) and r["violations"] == []
-    assert r["judge"] == {"name": "learned-gbr", "version": "vtest"}
+    assert r["judge"] == {
+        "name": "learned-gbr",
+        "version": "vtest",
+        "artifact_sha256": info["artifact_sha256"],  # every verdict names the bytes
+    }
     assert set(r["metrics"]) == set(learned.FEATURES)
 
 

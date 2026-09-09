@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+FEATURE_VERSION = "features-0.1"  # bump when any feature function below changes
 SINGLE_FEATURES = ("log_w", "log_h", "log_t", "er", "log_w_over_h")
 PAIR_FEATURES = ("log_w", "log_h", "log_t", "er", "log_w_over_h", "log_s", "log_s_over_h")
 SINGLE_TARGETS = ("z0",)
@@ -35,6 +36,12 @@ class Learned:
         if artifact.get("kind") != "surrogate":
             raise ValueError("artifact is not a physics surrogate")
         self.version = str(artifact["version"])
+        # v5 predates the field; it was trained on features-0.1
+        encoded = artifact.get("feature_version", FEATURE_VERSION)
+        if encoded != FEATURE_VERSION:
+            raise ValueError(
+                f"artifact encodes {encoded!r}, this code computes {FEATURE_VERSION!r}"
+            )
         self.single = artifact["models"]["single"]
         self.pair = artifact["models"]["pair"]
 

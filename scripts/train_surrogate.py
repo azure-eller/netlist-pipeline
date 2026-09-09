@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import subprocess
 import sys
 import time
 from datetime import UTC, datetime
@@ -23,6 +24,7 @@ from typing import Any
 
 import joblib
 import numpy as np
+import sklearn
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputRegressor
@@ -95,7 +97,13 @@ def main() -> None:
     # fresh geometries against the oracle: the number that matters
     rng = random.Random(a.seed + 1)
     fresh_err: dict[str, list[float]] = {"z0": [], "z_odd": [], "z_even": []}
-    learned = surrogate.Learned({"kind": "surrogate", "version": a.version, "models": models})
+    bundle = {
+        "kind": "surrogate",
+        "version": a.version,
+        "feature_version": surrogate.FEATURE_VERSION,
+        "models": models,
+    }
+    learned = surrogate.Learned(bundle)
     for _ in range(a.fresh):
         g = data.sample(rng)
         truth = fields.solve(g)
@@ -124,6 +132,11 @@ def main() -> None:
         "solver_version": fields.SOLVER_VERSION,
         "sampler_version": data.SAMPLER_VERSION,
         "feature_names": {"single": surrogate.SINGLE_FEATURES, "pair": surrogate.PAIR_FEATURES},
+        "feature_version": surrogate.FEATURE_VERSION,
+        "sklearn": sklearn.__version__,
+        "commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=ROOT
+        ).stdout.strip(),
         "targets": {"single": surrogate.SINGLE_TARGETS, "pair": surrogate.PAIR_TARGETS},
         "models": models,
         "metrics": metrics,
@@ -135,14 +148,17 @@ def main() -> None:
     out.parent.mkdir(exist_ok=True)
     joblib.dump(artifact, out)
     blob = out.read_bytes()
-    key = storage.put(f"models/judge/{a.version}.joblib", blob)
     sha = storage.sha256(blob)
+    key = storage.put(f"models/judge/{a.version}-{sha[:12]}.joblib", blob)
+    # the registry pins everything the bytes depend on; the row cannot be updated, so a
+    # version that already exists fails here on the unique constraint
+    metrics.update(
+        {k: artifact[k] for k in ("feature_version", "sklearn", "commit", "solver_version")}
+    )
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
             "insert into models (name, version, dataset_id, artifact_key, sha256, metrics) "
-            "values (%s, %s, %s, %s, %s, %s) on conflict (name, version) do update set "
-            "dataset_id = excluded.dataset_id, artifact_key = excluded.artifact_key, "
-            "sha256 = excluded.sha256, metrics = excluded.metrics, created_at = now()",
+            "values (%s, %s, %s, %s, %s, %s)",
             ("learned-fd", a.version, a.dataset, key, sha, json.dumps(metrics)),
         )
         conn.commit()
@@ -152,7 +168,7 @@ def main() -> None:
         f"# Surrogate {a.version}: learned physics from the field-solver oracle\n\n"
         f"Trained {artifact['trained_at']} on dataset {a.dataset} ({len(samples)} samples; "
         f"sampler {data.SAMPLER_VERSION}, solver {fields.SOLVER_VERSION}). Gradient boosting, "
-        f"600 trees, depth 4. Artifact `models/judge/{a.version}.joblib`, sha256 `{sha}`.\n\n"
+        f"600 trees, depth 4. Artifact `{key}`, sha256 `{sha}`.\n\n"
         f"| model | train | test | held-out MAPE |\n|---|---|---|---|\n"
         f"| single (z0) | {metrics['single']['n_train']} | {metrics['single']['n_test']} | "
         f"{metrics['single']['mape_z0']:.2f}% |\n"

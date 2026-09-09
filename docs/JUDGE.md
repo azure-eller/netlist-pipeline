@@ -24,7 +24,9 @@ full contract is in [SPEC.md](../SPEC.md).
 
 A judge version reaches the worker only through the golden set: `make golden` runs any judge
 against five boards with expected scorecards, two of them deliberately broken, and
-`scripts/golden.py --approve` records a passing version. The worker refuses anything else.
+`scripts/golden.py --approve` records a passing version as an immutable `judge_approvals` row
+naming the artifact's sha256 and the golden set's. The worker refuses anything else, and every
+verdict records the name, version and artifact sha256 that produced it.
 Three distilled learned judges were trained and all three were refused, correctly, on the
 broken-capacitor case; the record is in [experiments](experiments/README.md).
 

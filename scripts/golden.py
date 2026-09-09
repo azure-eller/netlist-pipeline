@@ -22,7 +22,7 @@ from typing import Any
 
 import httpx
 
-from pipeline import board, judge
+from pipeline import board, db, judge
 from pipeline.config import settings
 from pipeline.models import Constraints, Netlist
 
@@ -144,20 +144,18 @@ def golden_sha() -> str:
     return h.hexdigest()
 
 
-def approve(name: str, version: str) -> None:
-    path = GOLDEN / "approved.json"
-    entries = json.loads(path.read_text()) if path.exists() else []
-    entries = [e for e in entries if (e["name"], e["version"]) != (name, version)]
-    entries.append(
-        {
-            "name": name,
-            "version": version,
-            "approved_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            "golden_sha": golden_sha(),
-        }
+def approve(name: str, version: str, artifact_sha256: str | None) -> None:
+    """One immutable judge_approvals row: this name, version and these bytes passed this set."""
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "insert into judge_approvals (name, version, artifact_sha256, golden_sha) "
+            "values (%s, %s, %s, %s) on conflict do nothing",
+            (name, version, artifact_sha256, golden_sha()),
+        )
+        conn.commit()
+    print(
+        f"approved {name} {version} artifact {artifact_sha256} against golden {golden_sha()[:12]}"
     )
-    path.write_text(json.dumps(entries, indent=2) + "\n")
-    print(f"approved {name} {version} in {path.relative_to(ROOT)}")
 
 
 # ---- capture: build the cases from local runs and fixtures ----
@@ -321,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
             + "\n"
         )
     if passed and a.approve:
-        approve(meta["name"], meta["version"])
+        approve(meta["name"], meta["version"], meta.get("artifact_sha256"))
     return 0 if passed else 1
 
 

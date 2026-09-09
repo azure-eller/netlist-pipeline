@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -11,31 +11,40 @@ from pipeline import board, judge, models, storage
 from pipeline.config import settings
 from pipeline.stages import Ctx, common, stage
 
-APPROVED = Path(__file__).resolve().parents[3] / "golden" / "approved.json"
-
 
 def _headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {settings.judge_token}"} if settings.judge_token else {}
 
 
-def remote_judge() -> dict[str, str]:
-    """GET JUDGE_URL/v1/info; refuse a version that is not the pinned JUDGE_VERSION or not in
-    golden/approved.json (SPEC.md, "Judge versions and approval")."""
+def approved(conn: Any, name: str, version: str, sha: str | None) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            "select 1 from judge_approvals where name = %s and version = %s "
+            "and artifact_sha256 is not distinct from %s",
+            (name, version, sha),
+        )
+        return cur.fetchone() is not None
+
+
+def remote_judge(conn: Any) -> dict[str, str | None]:
+    """GET JUDGE_URL/v1/info; refuse a version that is not the pinned JUDGE_VERSION or whose
+    (name, version, artifact bytes) has no judge_approvals row (SPEC.md, "Judge versions and
+    approval")."""
     r = httpx.get(f"{settings.judge_url}/v1/info", headers=_headers(), timeout=30)
     r.raise_for_status()
-    name, version = r.json()["name"], r.json()["version"]
+    info = r.json()
+    name, version, sha = info["name"], info["version"], info.get("artifact_sha256")
     if settings.judge_version != "rules" and version != settings.judge_version:
         raise RuntimeError(
             f"judge {name} {version} at {settings.judge_url} is not the pinned "
             f"JUDGE_VERSION {settings.judge_version}"
         )
-    approved = json.loads(APPROVED.read_text()) if APPROVED.exists() else []
-    if not any(a["name"] == name and a["version"] == version for a in approved):
+    if not approved(conn, name, version, sha):
         raise RuntimeError(
-            f"judge {name} {version} is not in {APPROVED}; "
+            f"judge {name} {version} (artifact {sha}) has no judge_approvals row; "
             "run scripts/golden.py --judge-url ... --approve"
         )
-    return {"name": name, "version": version}
+    return {"name": name, "version": version, "artifact_sha256": sha}
 
 
 def _score(run_id: int, text: str, nl: models.Netlist, c: models.Constraints) -> models.JudgeResult:
@@ -64,7 +73,7 @@ def judge_stage(ctx: Ctx) -> None:
     nl = common.load_netlist(ctx)
     c = common.load_constraints(ctx)
     if settings.judge_url:
-        ctx.details["judge"] = remote_judge()
+        ctx.details["judge"] = remote_judge(ctx.conn)
     with ctx.conn.cursor() as cur:
         cur.execute(
             "select id, seed, board_key from candidates where run_id = %s order by seed",
@@ -110,7 +119,9 @@ def judge_stage(ctx: Ctx) -> None:
         "chosen": best.to_json(),
     }
     common.save_json(ctx, "report.json", report)
-    ctx.provenance(best.judge["name"], best.judge["version"], storage.sha256(best_text.encode()))
+    ctx.provenance(
+        str(best.judge["name"]), str(best.judge["version"]), storage.sha256(best_text.encode())
+    )
     ctx.output_hash = storage.sha256(json.dumps(report).encode())
     ctx.details["scores"] = {str(seed): res.score for _, seed, _, res in scored}
     ctx.details["violations"] = {str(seed): len(res.violations) for _, seed, _, res in scored}

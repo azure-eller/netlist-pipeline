@@ -14,7 +14,7 @@ import joblib
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from pipeline import board, judge, learned, models, storage
+from pipeline import board, db, judge, learned, models, storage
 from pipeline.config import settings
 
 ARTIFACT: dict[str, Any] = {}  # loaded learned judge; empty means the rules judge
@@ -33,8 +33,18 @@ def load() -> None:
 
         PHYSICS["provider"] = Oracle()
         return
-    key = settings.judge_artifact or f"models/judge/{version}.joblib"
+    key, registered = settings.judge_artifact, None
+    if not key:  # the registry names the bytes; a version is one artifact, forever
+        with db.connect() as conn, conn.cursor() as cur:
+            cur.execute("select artifact_key, sha256 from models where version = %s", (version,))
+            rows = cur.fetchall()
+        if len(rows) != 1:
+            raise RuntimeError(f"models table has {len(rows)} rows for version {version!r}")
+        key, registered = rows[0]
     data = Path(key).read_bytes() if Path(key).is_file() else storage.get(key)
+    sha = storage.sha256(data)
+    if registered and sha != registered:
+        raise RuntimeError(f"{key} is {sha[:12]}, the models row says {registered[:12]}")
     artifact = joblib.load(io.BytesIO(data))
     if artifact["version"] != version:
         raise RuntimeError(
@@ -42,7 +52,7 @@ def load() -> None:
         )
     ARTIFACT.update(
         artifact,
-        artifact_sha256=storage.sha256(data),
+        artifact_sha256=sha,
         loaded_at=datetime.now(UTC).isoformat(timespec="seconds"),
     )
     if artifact.get("kind") == "surrogate":  # learned physics behind the full rule judge
@@ -107,7 +117,9 @@ def score(req: ScoreRequest, authorization: str | None = Header(default=None)) -
     nl = models.Netlist.from_json(req.netlist)
     c = models.Constraints.from_json(req.constraints)
     if "provider" in PHYSICS:
-        return judge.score(b, nl, c, physics=PHYSICS["provider"]).to_json()
+        out = judge.score(b, nl, c, physics=PHYSICS["provider"]).to_json()
+        out["judge"]["artifact_sha256"] = ARTIFACT.get("artifact_sha256")
+        return out
     if not ARTIFACT:
         return judge.score(b, nl, c).to_json()
     # ponytail: one request, one predict on CPU; request batching and GPU placement are the
@@ -117,5 +129,9 @@ def score(req: ScoreRequest, authorization: str | None = Header(default=None)) -
         "score": predicted,
         "metrics": feats,
         "violations": [],
-        "judge": {"name": ARTIFACT["name"], "version": ARTIFACT["version"]},
+        "judge": {
+            "name": ARTIFACT["name"],
+            "version": ARTIFACT["version"],
+            "artifact_sha256": ARTIFACT["artifact_sha256"],
+        },
     }
