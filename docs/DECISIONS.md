@@ -75,3 +75,16 @@ geometry solved by the oracle, generated as shard jobs by the same workers that 
 with a manifest carrying sampler and solver versions, seed, counts and hashes. A dataset is
 reproducible from its manifest and a model artifact names its dataset. That is the whole
 provenance chain from a judge's number back to the equation that produced its training label.
+
+**The agent lane is bought, not built.** A Linear card labelled `agent` becomes a pull
+request through OpenHands, self-hosted on the lab machine, running in a container built
+from this repo's own image. We wrote a five-line Dockerfile, a Makefile target, the prompt
+the agent receives, and `AGENTS.md`. We did not write a webhook receiver, a queue, a
+sandbox manager, a model router, or a code reviewer, because each is a product in 2026
+with more people on it than this repo has. Routing to cheaper models is a label on the
+card and a profile in OpenHands over OpenRouter, not a router. Research is the other lane
+and is not an unattended agent: the results that count in 2026 came from a person
+steering one long session with subagents, so that lane is a practice, not infrastructure.
+The lane lives in its own repo, `agent-lane`, because none of it is about
+netlists; this repo keeps only `AGENTS.md` and the sandbox image.
+

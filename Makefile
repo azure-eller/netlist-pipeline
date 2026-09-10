@@ -1,7 +1,7 @@
 PY := .venv/bin/python
 export PYTHONPATH := src
 
-.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge dataset train-surrogate train-cutnet factory-windows build
+.PHONY: up down migrate api worker judge lint type test e2e check demo eval golden train-judge dataset train-surrogate train-cutnet factory-windows build sandbox-image
 
 up:            ## start Postgres + MinIO
 	docker compose up -d postgres minio
@@ -56,6 +56,15 @@ check: lint type test e2e   ## nothing is done until this passes
 
 build:
 	docker compose build api
+
+SDK_DIR := .cache/software-agent-sdk
+sandbox-image: build  ## OpenHands sandbox image on top of ours (see the agent-lane repo)
+	test -d $(SDK_DIR) || git clone --depth 1 https://github.com/OpenHands/software-agent-sdk $(SDK_DIR)
+	docker build -f infra/sandbox.Dockerfile -t netlist-pipeline-root:local .
+	cd $(SDK_DIR) && docker buildx build --build-arg BASE_IMAGE=netlist-pipeline-root:local \
+	  --target binary-minimal -f openhands-agent-server/openhands/agent_server/docker/Dockerfile \
+	  -t netlist-sandbox:local --load .
+	@echo "export AGENT_SERVER_IMAGE_REPOSITORY=netlist-sandbox AGENT_SERVER_IMAGE_TAG=local"
 
 demo:
 	scripts/demo.sh http://localhost:8000

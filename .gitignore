@@ -11,3 +11,4 @@ __pycache__/
 *-backups/
 fp-info-cache
 models/*.joblib
+.cache/

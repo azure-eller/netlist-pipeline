@@ -269,3 +269,13 @@ https://netlist-api-ivqr.onrender.com/healthz. Details in [docs/DEPLOY.md](docs/
   in the pipeline; Claude built the repo.
 - [docs/experiments](docs/experiments/README.md): every judge and placer experiment, with
   the ones that failed.
+
+## How work gets done here
+
+Cards on the Linear board labelled `agent` are picked up by OpenHands, self-hosted on
+the lab machine, in a container built from this repo's image; the result is a pull
+request with the link back on the card. This repo provides only `AGENTS.md` (the rules every
+agent reads) and `make sandbox-image`; the lane itself, what was bought and what was built, and
+why research is run differently are in the separate
+[agent-lane](https://github.com/azure-eller/agent-lane) repo.
+
