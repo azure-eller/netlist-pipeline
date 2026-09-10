@@ -68,10 +68,8 @@ def main() -> None:
     cs, ti = fields.select_conductors(cut)
     tokens, pairs, _, nets = cutnet.featurise(cut)
 
-    print(
-        f"slice: {len(cs)} conductors, plane {'yes' if cut.plane_below or cut.plane_above else 'no'}, "
-        f"h {cut.h} mm, t {cut.t} mm, er {cut.er}\n"
-    )
+    plane = "yes" if cut.plane_below or cut.plane_above else "no"
+    print(f"slice: {len(cs)} conductors, plane {plane}, h {cut.h} mm, t {cut.t} mm, er {cut.er}\n")
     print("INPUT: one row per conductor, nine numbers each (raw, before standardising)")
     print(f"{'net':<18}" + "".join(f"{n:>10}" for n in NAMES))
     for c, row in zip(cs, tokens, strict=True):
@@ -147,7 +145,8 @@ def main() -> None:
         ax.set_title(title, color=TXT, fontsize=10)
         fig.colorbar(im, ax=ax, fraction=0.046).ax.tick_params(colors="#9fb3d1", labelsize=7)
     fig.suptitle(
-        f"learned-cut {a.version} on one slice: z0 model {pred.z0:.1f} ohm, solver {truth.z0:.1f} ohm",
+        f"learned-cut {a.version} on one slice: z0 model {pred.z0:.1f} ohm, "
+        f"solver {truth.z0:.1f} ohm",
         color=TXT,
         fontsize=11,
     )
