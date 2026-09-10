@@ -94,6 +94,9 @@ def test_judge_mode_on_human_routed_board(client: TestClient) -> None:
     }
     # provenance on every stage
     assert all(s["tool"] and s["tool_version"] and s["input_hash"] for s in run["stages"])
+    # the status board lists the run with its stages
+    board = client.get("/").text
+    assert f'<a href="/runs/{up["run_id"]}">' in board and "export" in board
     # same bytes again: same design, new run (SPEC invariant 3)
     again = upload(client, "pic.zip", zip_dir(FIX / "pic_programmer"))
     assert again["design_id"] == up["design_id"] and again["run_id"] != up["run_id"]

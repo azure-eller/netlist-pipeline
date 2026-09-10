@@ -28,8 +28,42 @@ def place(ctx: Ctx) -> None:
     src.write_text(text)
     in_hash = hashlib.sha256()
     out_hash = hashlib.sha256()
+    pads_on = {f.ref: {p.number for p in f.pads} for f in b.footprints}
+    nets = [
+        (c.net_class(n.name), pins)
+        for n in nl.nets
+        if len(pins := [(x.ref, x.pin) for x in n.nodes if x.pin in pads_on.get(x.ref, ())]) > 1
+    ]
     for seed in range(1, ctx.seeds + 1):
-        positions, cost = placer.place(b, nl, c, seed)
+
+        def watch(
+            i: int,
+            n: int,
+            t: float,
+            cost: float,
+            geo: dict[str, Any],
+            s: int = seed,
+            history: list[tuple[int, float]] = [],  # noqa: B006 - one list per seed, by design
+        ) -> None:
+            # live snapshot for the status board (GET /); overwritten every 0.1% of the anneal
+            # (~3 ms each, under 4% of the stage)
+            history.append((i, cost))
+            frame = {
+                "seed": s,
+                "i": i,
+                "n": n,
+                "t": t,
+                "cost": cost,
+                "outline": b.outline,
+                "fixed": sorted(c.fixed),
+                "boxes": {r: g[1] for r, g in geo.items()},
+                "pads": {r: g[0] for r, g in geo.items()},
+                "nets": nets,
+                "history": history,
+            }
+            storage.put(common.run_key(ctx, "anneal.json"), json.dumps(frame).encode())
+
+        positions, cost = placer.place(b, nl, c, seed, watch=watch)
         out = d / f"placed-{seed}.kicad_pcb"
         pcb.set_positions(src, positions, out)
         data = out.read_bytes()

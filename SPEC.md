@@ -156,7 +156,10 @@ A judge version reaches the worker only after it agrees with the golden set.
 `POST /designs?placer=search|claude` (default `search`) chooses how generate mode places parts.
 
 - `search`: seeded simulated annealing over the proxy cost (wire length, decoupling distance,
-  1.0 mm courtyard clearance, bounds). Deterministic per seed.
+  1.0 mm courtyard clearance, bounds). Deterministic per seed. While it runs it overwrites
+  `runs/<id>/anneal.json` (seed, iteration, temperature, cost, courtyards, pads, nets, cost
+  history) every 0.1 % of the iterations; `GET /runs/<id>/anneal` draws it and `GET /` polls
+  that. Not an artifact, not hashed.
 - `claude`: the search layout for each seed is handed to Claude (Agent SDK, model
   `claude-fable-5-1`, no tools, one turn, structured output) as a compact board description;
   the proposal is validated in code (movable refs only, rotations snapped, positions clamped

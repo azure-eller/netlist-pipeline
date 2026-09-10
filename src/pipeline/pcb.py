@@ -228,6 +228,7 @@ def route(path_in: Path, path_out: Path) -> dict[str, Any]:
         raise RuntimeError(f"DSN export failed for {path_in}")
     argv = [
         *shlex.split(settings.freerouting_bin),
+        "--gui.enabled=false",  # headless: no window steals focus on a desktop worker
         "-de",
         str(dsn),
         "-do",

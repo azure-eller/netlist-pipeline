@@ -30,10 +30,9 @@ That service is the model slot.
 
 </details>
 
-**Stage 4, watched.** The annealer on KiCad's 63-part `pic_programmer` demo: parts start on a
-grid and trade wire length against overlap as the temperature falls.
-
-![Simulated annealing placing the pic_programmer](docs/media/anneal.gif)
+**Stage 4, watched.** `GET /` on the API is a status board: one row per run, one cell per
+stage, and while a run is in `place` it draws the annealer live, parts, rat's nest by net
+class and the cost curve, from snapshots the stage writes every 0.1 % of its moves.
 
 ## The judge, and the physics model inside it
 
@@ -248,7 +247,7 @@ missing plane does.
 
 ```
 make up && make migrate        # Postgres + MinIO
-make api                       # FastAPI on :8000
+make api                       # FastAPI on :8000; GET / is a status board: runs, stages, the annealer live
 make worker                    # the job loop
 make demo                      # upload pic_programmer, poll, print the report
 make check                     # ruff, mypy strict, unit tests, end-to-end suite

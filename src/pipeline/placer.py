@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import math
 import random
+from collections.abc import Callable
 
 from pipeline.models import BBox, Board, Constraints, Netlist
 
 Pose = tuple[float, float, float]  # x_mm, y_mm, rot_deg
 XY = tuple[float, float]
 _Geo = tuple[dict[str, XY], BBox]  # absolute pad centers by pad number, absolute courtyard
+Watch = Callable[[int, int, float, float, dict[str, _Geo]], None]  # i, n, temperature, cost, geo
 
 GRID = 0.5
 DECAP_FREE_MM = 2.0
@@ -152,8 +154,10 @@ def place(
     constraints: Constraints,
     seed: int,
     iterations: int | None = None,
+    watch: Watch | None = None,
 ) -> tuple[dict[str, Pose], float]:
     """Anneal from the board's current (grid) layout. Returns (ref -> pose, proxy cost).
+    `watch`, if given, sees the current layout every 0.1% of the iterations and at the end.
 
     Parts never leave the outline (moves are clamped), so the search only trades wire length
     against overlap. Iterations scale with the number of movable parts."""
@@ -208,8 +212,11 @@ def place(
 
     best, best_cost = dict(pose), cur
     anneal = int(iterations * 0.9)  # last 10%: greedy settle at T -> 0
+    every = max(1, iterations // 1000)
     for i in range(iterations):
         t = t0 * 0.001 ** (i / anneal) if i < anneal else 1e-9
+        if watch and (i % every == 0 or i == iterations - 1):
+            watch(i, iterations, t, cur, geo)
         new = propose(min(1.0, t / t0))
         old_pose = {r: pose[r] for r in new}
         old_geo = {r: geo[r] for r in new}

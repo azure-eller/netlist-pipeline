@@ -109,6 +109,19 @@ def test_place_is_legal_and_keeps_fixed() -> None:
             assert placer._clip(boxes[a], boxes[b]) is None, (a, b)
 
 
+def test_watch_sees_every_part_and_the_end() -> None:
+    seen: list[tuple[int, int, set[str]]] = []
+    placer.place(
+        SPREAD,
+        NETLIST,
+        CONSTRAINTS,
+        seed=1,
+        watch=lambda i, n, _t, _c, g: seen.append((i, n, set(g))),
+    )
+    assert len(seen) >= 1000 and seen[-1][0] == seen[-1][1] - 1
+    assert all(refs == {"U1", "C1", "R1", "J1"} for _, _, refs in seen)
+
+
 def test_same_seed_is_deterministic() -> None:
     assert placer.place(SPREAD, NETLIST, CONSTRAINTS, seed=7) == placer.place(
         SPREAD, NETLIST, CONSTRAINTS, seed=7
