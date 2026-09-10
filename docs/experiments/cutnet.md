@@ -65,6 +65,15 @@ applied to standardised log values, so `exp` of them was not a capacitance and t
 fought the fit (validation loss plateaued at 0.016; 11.9 % on held-out). The `models` table
 is immutable, so those rows stay; nothing was approved from them.
 
+## Seeing it
+
+`scripts/cutnet_show.py --version v8 --board 19 --net /ID_SDA --cut 5` prints, for one real
+slice, the nine numbers per conductor that go in, the pairwise gaps, the last layer's
+attention, and the predicted and solved matrices with the derived z0 and coupling; it draws
+them to `docs/media/cutnet_example.png`.
+
+![learned-cut v8 on one slice](../media/cutnet_example.png)
+
 ## Commands
 
 ```

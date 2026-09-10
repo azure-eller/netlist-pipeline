@@ -110,6 +110,7 @@ class _Attention(nn.Module):
         scores = torch.einsum("bihd,bjhd->bhij", q, kk) / math.sqrt(self.dh) + bias
         scores = scores.masked_fill(~mask[:, None, None, :], float("-inf"))
         att = torch.softmax(scores, dim=-1)
+        self.last = att.detach()  # [B, heads, K, K]; kept for scripts/cutnet_show.py
         y = torch.einsum("bhij,bjhd->bihd", att, v).reshape(b, k, self.h * self.dh)
         out: Tensor = self.out(y)
         return out
