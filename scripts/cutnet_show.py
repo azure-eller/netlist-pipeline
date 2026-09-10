@@ -13,20 +13,24 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import random
 import sys
 from pathlib import Path
 
-import joblib
-import matplotlib
-import numpy as np
+ROOT = Path(__file__).resolve().parent.parent
+VENV = ROOT / ".venv" / "bin" / "python"
+if VENV.exists() and Path(sys.prefix) != VENV.parent.parent:
+    os.execv(str(VENV), [str(VENV), *sys.argv])  # run under the repo's venv, whatever `python` is
+sys.path.insert(0, str(ROOT / "src"))
+
+import joblib  # noqa: E402
+import matplotlib  # noqa: E402
+import numpy as np  # noqa: E402
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "src"))
 
 from pipeline import board, cutnet, data, db, fields, storage, windows  # noqa: E402
 
